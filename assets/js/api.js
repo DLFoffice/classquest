@@ -21,7 +21,7 @@ const local = {
 const p2 = (n) => String(n).padStart(2, '0');
 const fmt = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
 const LOCAL_MAP = { create: 'createRoom', next: 'next', reveal: 'reveal', board: 'showBoard', end: 'end', kick: 'kick',
-  hpoll: 'hostPoll', react: 'react', join: 'join', answer: 'answer', poll: 'playerPoll' };
+  hpoll: 'hostPoll', react: 'react', squestion: 'sQuestion', sanswer: 'sAnswer', join: 'join', answer: 'answer', poll: 'playerPoll' };
 
 async function callLocal(action, body) {
   await sleep(60);

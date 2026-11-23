@@ -54,7 +54,8 @@ function compute() {
     const score = Math.max(0, ...rows.map((r) => Number(r[10]) || 0));
     const fr = final.find((r) => r[4] === n);
     const times = rows.filter((r) => r[8] !== '').map((r) => Number(r[8]));
-    return { n, by, correct, score: fr ? Number(fr[5]) : score, rank: fr ? Number(fr[3]) : 0, avgT: times.length ? times.reduce((a, b) => a + b, 0) / times.length : null };
+    const full = (rows.find((x) => x[11]) || [])[11] || (fr ? fr[9] || '' : '');
+    return { n, full, by, correct, score: fr ? Number(fr[5]) : score, rank: fr ? Number(fr[3]) : 0, avgT: times.length ? times.reduce((a, b) => a + b, 0) / times.length : null };
   }).sort((a, b) => b.score - a.score || b.correct - a.correct);
   people.forEach((p, i) => { if (!p.rank) p.rank = i + 1; });
   const qs = qn.map((q) => {
@@ -113,9 +114,9 @@ function render() {
       </aside>
     </div>
     <section class="rc"><h2><span>🧑‍🎓</span>ผลรายบุคคล</h2><div class="scroll"><table class="tb">
-      <thead><tr><th>อันดับ</th><th class="l">ชื่อ</th><th>คะแนน</th><th class="l">ตอบถูก</th>${s.qn.map((q) => `<th>${q}</th>`).join('')}<th>เวลาเฉลี่ย</th></tr></thead>
+      <thead><tr><th>อันดับ</th><th class="l">ชื่อ-สกุล (ชื่อเล่น)</th><th>คะแนน</th><th class="l">ตอบถูก</th>${s.qn.map((q) => `<th>${q}</th>`).join('')}<th>เวลาเฉลี่ย</th></tr></thead>
       <tbody>${P.map((p) => { const pc = s.total ? p.correct / s.total : 0; return `<tr>
-        <td><span class="rk r${p.rank}">${MEDAL[p.rank - 1] || p.rank}</span></td><td class="l nm">${esc(p.n)}</td><td class="sc">${p.score.toLocaleString()}</td>
+        <td><span class="rk r${p.rank}">${MEDAL[p.rank - 1] || p.rank}</span></td><td class="l nm">${esc(p.full || p.n)}${p.full ? `<small class="nk">${esc(p.n)}</small>` : ''}</td><td class="sc">${p.score.toLocaleString()}</td>
         <td class="l"><div class="minibar ${tone(pc)}"><i style="width:${pc * 100}%"></i></div><span class="mt">${p.correct}/${s.total}</span></td>
         ${s.qn.map((q) => { const r = p.by[q], ok = r && r[7] === 'ถูก', none = !r || r[6] === '(ไม่ได้ตอบ)'; return `<td><span class="dot ${ok ? 'y' : none ? 'z' : 'n'}" title="${esc(r ? r[6] : 'ไม่ได้ตอบ')}">${ok ? '✓' : none ? '–' : '✕'}</span></td>`; }).join('')}
         <td class="tm">${p.avgT == null ? '-' : p.avgT.toFixed(1) + ' วิ'}</td></tr>`; }).join('')}</tbody>
@@ -126,8 +127,8 @@ function render() {
 function csv() {
   if (!D) return;
   const s = compute(), q = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
-  const head = ['อันดับ', 'ชื่อ', 'คะแนน', 'ตอบถูก', 'จำนวนข้อ', 'ร้อยละ'].concat(s.qn.map((n) => 'ข้อ ' + n));
-  const rows = s.people.map((p) => [p.rank, p.n, p.score, p.correct, s.total, s.total ? Math.round((p.correct / s.total) * 100) : 0]
+  const head = ['อันดับ', 'ชื่อ-สกุล', 'ชื่อเล่น', 'คะแนน', 'ตอบถูก', 'จำนวนข้อ', 'ร้อยละ'].concat(s.qn.map((n) => 'ข้อ ' + n));
+  const rows = s.people.map((p) => [p.rank, p.full, p.n, p.score, p.correct, s.total, s.total ? Math.round((p.correct / s.total) * 100) : 0]
     .concat(s.qn.map((n) => (p.by[n] ? p.by[n][7] : 'ไม่ได้ตอบ'))));
   const txt = '﻿' + [head].concat(rows).map((r) => r.map(q).join(',')).join('\r\n');
   const a = document.createElement('a');

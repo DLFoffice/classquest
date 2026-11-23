@@ -6,6 +6,20 @@ var CQ = (function () {
   var BASE = 500, SPEED = 500, STREAK = 100;
 
   function err(msg) { var e = new Error(msg); e.cq = true; return e; }
+  function spKey(pin, pid) { return 'sp_' + pin + '_' + pid; }
+  function phoneQ(q) {
+    if (q.type === 'fill') return { type: 'fill', q: q.q, t: q.t, hx: q.hx, h1: q.hx ? null : q.h1, h2: q.hx ? null : q.h2, cols: q.h1.length, rows: q.h2.length, opts: q.opts, pl: q.pl, fur: q.fur };
+    if (q.type === 'match') return { type: 'match', q: q.q, t: q.t, L: q.p.map(function (x) { return x.l; }), R: q.perm.map(function (j) { return q.p[j].r; }) };
+    return { type: 'mc', q: q.q, c: q.c, t: q.t };
+  }
+  function resultOf(q, res) {
+    var out = { type: q.type || 'mc', ok: res.ok, gained: res.g, choice: res.ch, explain: q.x, frac: res.frac == null ? (res.ok ? 1 : 0) : res.frac, items: res.items || null };
+    if (q.type === 'fill') { out.key = q.k; out.cols = q.h1.length; out.rows = q.h2.length; out.hx = q.hx; out.h1 = q.h1; out.h2 = q.h2; }
+    else if (q.type === 'match') out.pairs = q.p;
+    else { out.answer = q.a; out.answerText = q.c[q.a]; }
+    return out;
+  }
+  function stageInfo(r, i) { var q = r.qs[i], sg = q && r.stages && q.st >= 0 ? r.stages[q.st] : null; return sg ? { n: sg.n, ic: sg.ic, th: sg.th, d: sg.d, no: q.st + 1 } : null; }
   function rxKey(pin) { return 'rx_' + pin; }
   var EMOJI = ['🎉', '😆', '👍', '❤️', '🔥', '🚀'];
   function roomKey(pin) { return 'room_' + pin; }
@@ -22,16 +36,70 @@ var CQ = (function () {
     if (!qs || !qs.length) throw err('ยังไม่มีข้อคำถาม');
     if (qs.length > 50) throw err('ข้อคำถามได้ไม่เกิน 50 ข้อ');
     return qs.map(function (q, i) {
+      var no = 'ข้อ ' + (i + 1) + ' ', ty = q.type === 'fill' || q.type === 'match' ? q.type : 'mc';
+      if (!clip(q.q, 300)) throw err(no + 'ยังไม่มีคำถาม');
+      var st = Number(q.st); st = st >= 0 && st < 8 ? Math.floor(st) : -1;
+      if (ty === 'fill') {
+        var k = (q.k || []).map(function (x) { return clip(x, 8); }), h1 = (q.h1 || []).map(function (x) { return clip(x, 4); }), h2 = (q.h2 || []).map(function (x) { return clip(x, 4); });
+        if (!k.length || k.length > 40 || !h1.length || !h2.length || k.some(function (x) { return !x; })) throw err(no + 'ตารางพันนิตต์ยังไม่ถูกต้อง');
+        var fur = (q.fur || []).slice(0, 2).map(function (x) { return /^#[0-9a-fA-F]{3,8}$/.test(String(x)) ? String(x) : '#ffffff'; });
+        return { type: 'fill', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 60)), x: clip(q.x, 200), st: st, g: clip(q.g, 60),
+          k: k, h1: h1, h2: h2, hx: !!q.hx, opts: (q.opts || []).slice(0, 12).map(function (x) { return clip(x, 8); }),
+          pl: [clip((q.pl || [])[0], 40), clip((q.pl || [])[1], 40)], fur: fur };
+      }
+      if (ty === 'match') {
+        var pr = (q.p || []).map(function (x) { return { l: clip(x && x.l, 60), r: clip(x && x.r, 90) }; }).filter(function (x) { return x.l && x.r; });
+        if (pr.length < 2 || pr.length > 6) throw err(no + 'ต้องมีคู่จับคู่ 2–6 คู่');
+        var perm = pr.map(function (_, j) { return j; });
+        for (var tries = 0; tries < 10; tries++) {
+          for (var m = perm.length - 1; m > 0; m--) { var j2 = Math.floor(Math.random() * (m + 1)), tmp = perm[m]; perm[m] = perm[j2]; perm[j2] = tmp; }
+          if (perm.some(function (v, j) { return v !== j; })) break;
+        }
+        return { type: 'match', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 45)), x: clip(q.x, 200), st: st, p: pr, perm: perm };
+      }
       var c = (q.c || []).map(function (x) { return clip(x, 120); }).filter(function (x) { return x; });
       var a = Number(q.a);
-      if (!clip(q.q, 300)) throw err('ข้อ ' + (i + 1) + ' ยังไม่มีคำถาม');
       if (c.length < 2) throw err('ข้อ ' + (i + 1) + ' ต้องมีตัวเลือกอย่างน้อย 2 ตัว');
       if (!(a >= 0 && a < c.length)) throw err('ข้อ ' + (i + 1) + ' ยังไม่ได้เลือกคำตอบที่ถูก');
       var t = Math.max(5, Math.min(120, Number(q.t) || 20));
-      return { q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200), g: clip(q.g, 60), gs: !!q.gs };
+      return { type: 'mc', q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200), g: clip(q.g, 60), gs: !!q.gs, st: st };
     });
   }
 
+  function cleanStages(a) {
+    return (a || []).slice(0, 8).map(function (x) { return { n: clip(x && x.n, 40), th: clip(x && x.th, 12), d: clip(x && x.d, 90), ic: clip(x && x.ic, 6) }; });
+  }
+  function themeOf(r, idx) {
+    var q = r.qs[idx];
+    if (q && r.stages && q.st >= 0 && r.stages[q.st] && r.stages[q.st].th) return r.stages[q.st].th;
+    return r.theme || '';
+  }
+  function normG(x) {
+    x = String(x || '');
+    if (x.length === 2 && x[0].toLowerCase() === x[1].toLowerCase() && x[0] !== x[0].toUpperCase() && x[1] === x[1].toUpperCase()) return x[1] + x[0];
+    return x;
+  }
+  function grade(q, a) {
+    if (!a) return { ok: false, frac: 0, items: null };
+    if (q.type === 'fill') {
+      var it = q.k.map(function (v, i) { return String(a.c[i] || '') === v; });
+      if (q.hx) { // เติมหัวตารางเอง: ลำดับเซลล์สืบพันธุ์สลับกันได้ → ตรวจตารางลูกตามหัวตารางที่นักเรียนเติม
+        var n1 = q.h1.length, n2 = q.h2.length, s1 = a.c.slice(0, n1), s2 = a.c.slice(n1, n1 + n2);
+        var same = function (x, y) { return x.slice().sort().join() === y.slice().sort().join(); };
+        var r1 = same(s1, q.h1), r2 = same(s2, q.h2), H1 = r1 ? s1 : q.h1, H2 = r2 ? s2 : q.h2;
+        it = [];
+        for (var i1 = 0; i1 < n1; i1++) it.push(r1 || s1[i1] === q.h1[i1]);
+        for (var i2 = 0; i2 < n2; i2++) it.push(r2 || s2[i2] === q.h2[i2]);
+        for (var rr = 0; rr < n2; rr++) for (var cc = 0; cc < n1; cc++) it.push(String(a.c[n1 + n2 + rr * n1 + cc] || '') === normG(H1[cc] + H2[rr]));
+      }
+      var n = it.filter(Boolean).length; return { ok: n === it.length, frac: n / it.length, items: it };
+    }
+    if (q.type === 'match') {
+      var im = q.p.map(function (_, i) { return q.perm[a.c[i]] === i; });
+      var nm = im.filter(Boolean).length; return { ok: nm === im.length, frac: nm / im.length, items: im };
+    }
+    var ok = a.c === q.a; return { ok: ok, frac: ok ? 1 : 0, items: null };
+  }
   function ranking(r) {
     return r.order.slice().sort(function (a, b) {
       var A = r.players[a], B = r.players[b];
@@ -40,7 +108,7 @@ var CQ = (function () {
   }
   function board(r, n) {
     return ranking(r).slice(0, n || 999).map(function (pid, i) {
-      var p = r.players[pid]; return { rank: i + 1, name: p.n, score: p.s, correct: p.c, av: p.av };
+      var p = r.players[pid]; return { rank: i + 1, name: p.n, full: p.f || '', score: p.s, correct: p.c, av: p.av };
     });
   }
 
@@ -54,10 +122,10 @@ var CQ = (function () {
         if (!store.get(roomKey(p))) pin = p;
       }
       if (!pin) throw err('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง');
-      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', theme: clip(o.theme, 12), qs: qs, phase: 'lobby', idx: -1,
+      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', theme: clip(o.theme, 12), qs: qs, stages: cleanStages(o.stages), mode: o.mode === 'self' ? 'self' : 'live', phase: o.mode === 'self' ? 'self' : 'lobby', idx: -1,
         qStart: 0, qEnd: 0, players: {}, order: [], created: store.now(), last: null, ver: 0 };
       save(store, r);
-      store.append('rooms', [[new Date(store.now()), pin, r.title, qs.length, 'สร้างห้อง']]);
+      store.append('rooms', [[new Date(store.now()), pin, r.title, qs.length, r.mode === 'self' ? 'สร้างห้อง (นักเรียนเล่นเอง)' : 'สร้างห้อง (เล่นสด)']]);
       return { pin: pin };
     });
   }
@@ -79,22 +147,29 @@ var CQ = (function () {
       var r = getRoom(store, o.pin);
       if (r.phase !== 'question') return view(store, r);
       var q = r.qs[r.idx], keys = r.order.map(function (pid) { return ansKey(r.pin, r.idx, pid); });
-      var got = store.getAll(keys), dist = q.c.map(function () { return 0; }), res = {}, rows = [], now = new Date(store.now());
+      var got = store.getAll(keys), res = {}, rows = [], now = new Date(store.now());
+      var mc = q.type === 'mc', nItems = q.type === 'fill' ? q.k.length : q.type === 'match' ? q.p.length : 0;
+      var dist = mc ? q.c.map(function () { return 0; }) : [0, 0, 0], itemOk = [], sumFrac = 0;
+      for (var z = 0; z < nItems; z++) itemOk.push(0);
       r.order.forEach(function (pid) {
-        var p = r.players[pid], a = got[ansKey(r.pin, r.idx, pid)], ok = !!a && a.c === q.a, g = 0;
-        if (a && a.c >= 0 && a.c < dist.length) dist[a.c]++;
-        if (ok) {
-          p.st = (p.st || 0) + 1;
-          g = BASE + Math.round(SPEED * Math.max(0, 1 - a.ms / (q.t * 1000))) + (p.st >= 3 ? STREAK : 0);
-          p.c++;
-        } else p.st = 0;
+        var p = r.players[pid], a = got[ansKey(r.pin, r.idx, pid)], gr = grade(q, a), g = 0;
+        if (mc) { if (a && a.c >= 0 && a.c < dist.length) dist[a.c]++; }
+        else if (a) { dist[gr.ok ? 0 : gr.frac > 0 ? 1 : 2]++; gr.items.forEach(function (v, i) { if (v) itemOk[i]++; }); }
+        sumFrac += gr.frac;
+        if (gr.ok) p.st = (p.st || 0) + 1; else p.st = 0;
+        if (gr.frac > 0) g = Math.round((BASE + SPEED * Math.max(0, 1 - a.ms / (q.t * 1000))) * gr.frac) + (gr.ok && p.st >= 3 ? STREAK : 0);
+        if (gr.ok) p.c++;
         p.s += g;
-        res[pid] = { ch: a ? a.c : -1, ok: ok, g: g, ms: a ? a.ms : null };
-        rows.push([now, r.pin, r.title, r.idx + 1, q.q, p.n, a ? q.c[a.c] || '' : '(ไม่ได้ตอบ)', ok ? 'ถูก' : 'ผิด',
-          a ? Math.round(a.ms / 100) / 10 : '', g, p.s]);
+        res[pid] = { ch: a ? a.c : -1, ok: gr.ok, g: g, ms: a ? a.ms : null, frac: gr.frac, items: gr.items };
+        var txt = !a ? '(ไม่ได้ตอบ)' : mc ? q.c[a.c] || '' : q.type === 'fill' ? a.c.join(' ')
+          : q.p.map(function (x, i) { return x.l + '→' + (q.p[q.perm[a.c[i]]] || {}).r; }).join(' | ');
+        var cnt = gr.items ? gr.items.filter(Boolean).length : 0;
+        rows.push([now, r.pin, r.title, r.idx + 1, q.q, p.n, txt, gr.ok ? 'ถูก' : !mc && cnt ? 'ถูกบางส่วน ' + cnt + '/' + nItems : 'ผิด',
+          a ? Math.round(a.ms / 100) / 10 : '', g, p.s, p.f || '']);
       });
-      r.phase = 'reveal'; r.last = { idx: r.idx, dist: dist, res: res, n: Object.keys(got).length };
-      r.trail = r.trail || []; r.trail[r.idx] = r.order.length ? Math.round((dist[q.a] / r.order.length) * 1000) / 1000 : 0;
+      r.phase = 'reveal'; r.last = { idx: r.idx, dist: dist, res: res, n: Object.keys(got).length, itemOk: itemOk };
+      r.trail = r.trail || [];
+      r.trail[r.idx] = !r.order.length ? 0 : mc ? Math.round((dist[q.a] / r.order.length) * 1000) / 1000 : Math.round((sumFrac / r.order.length) * 1000) / 1000;
       r.qEnd = Math.min(r.qEnd, store.now());
       save(store, r);
       if (rows.length) store.append('answers', rows);
@@ -111,10 +186,14 @@ var CQ = (function () {
   }
 
   function finish(store, r) {
+    if (r.mode === 'self') {
+      var sps = store.getAll(r.order.map(function (pid) { return spKey(r.pin, pid); }));
+      r.order.forEach(function (pid) { var sp = sps[spKey(r.pin, pid)]; if (sp) { r.players[pid].s = sp.s; r.players[pid].c = sp.c; } });
+    }
     r.phase = 'end'; save(store, r);
     var now = new Date(store.now()), total = r.qs.length;
     var rows = board(r).map(function (b) {
-      return [now, r.pin, r.title, b.rank, b.name, b.score, b.correct, total, Math.round((b.correct / total) * 1000) / 10];
+      return [now, r.pin, r.title, b.rank, b.name, b.score, b.correct, total, Math.round((b.correct / total) * 1000) / 10, b.full];
     });
     if (rows.length) store.append('players', rows);
     store.append('rooms', [[now, r.pin, r.title, total, 'จบเกม · ผู้เล่น ' + r.order.length + ' คน']]);
@@ -138,8 +217,15 @@ var CQ = (function () {
 
   /** มุมมองของครู */
   function view(store, r) {
-    var out = { pin: r.pin, title: r.title, theme: r.theme || '', phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver,
-      players: r.order.map(function (pid) { var p = r.players[pid]; return { pid: pid, name: p.n, av: p.av }; }) };
+    var out = { pin: r.pin, title: r.title, theme: r.phase === 'lobby' || r.phase === 'end' ? r.theme || '' : themeOf(r, r.idx), stages: r.stages || [],
+      nst: r.qs[r.idx + 1] ? r.qs[r.idx + 1].st : null, stq: r.qs.map(function (x) { return x.st; }), phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver,
+      players: r.order.map(function (pid) { var p = r.players[pid]; return { pid: pid, name: p.n, full: p.f || '', av: p.av }; }) };
+    out.mode = r.mode || 'live';
+    if (r.phase === 'self') {
+      var sps = store.getAll(r.order.map(function (pid) { return spKey(r.pin, pid); }));
+      out.self = r.order.map(function (pid) { var p = r.players[pid], sp = sps[spKey(r.pin, pid)] || {};
+        return { pid: pid, name: p.n, full: p.f || '', av: p.av, i: sp.i || 0, s: sp.s || 0, c: sp.c || 0, done: !!sp.done, started: !!sp.t0 }; });
+    }
     if (r.idx >= 0) out.q = r.qs[r.idx];
     out.trail = r.trail || [];
     if (r.phase === 'lobby') out.rx = (store.get(rxKey(r.pin)) || []).filter(function (x) { return x.t > store.now() - 6000; });
@@ -148,7 +234,7 @@ var CQ = (function () {
       var got = store.getAll(r.order.map(function (pid) { return ansKey(r.pin, r.idx, pid); }));
       out.answered = Object.keys(got).length;
     }
-    if (r.last) { out.dist = r.last.dist; out.answered = r.last.n; }
+    if (r.last) { out.dist = r.last.dist; out.answered = r.last.n; out.itemOk = r.last.itemOk || []; }
     if (r.phase !== 'lobby' && r.phase !== 'question') out.board = board(r, r.phase === 'end' ? 999 : 5);
     if (r.phase === 'reveal' && r.last) {
       // ใครตอบถูกเร็วที่สุด
@@ -164,34 +250,95 @@ var CQ = (function () {
 
   // ---------------------------------------------------------------- นักเรียน
   function join(store, o) {
-    var name = clip(o.name, 20), pid = clip(o.pid, 24), av = Math.max(0, Math.min(11, Number(o.av) || 0));
+    var name = clip(o.name, 20), full = clip(o.full, 60), pid = clip(o.pid, 24), av = Math.max(0, Math.min(11, Number(o.av) || 0));
+    if (full.length < 2) throw err('กรุณาใส่ชื่อ-สกุล');
     if (name.length < 1) throw err('กรุณาใส่ชื่อเล่น');
     if (!/^[a-zA-Z0-9]{6,24}$/.test(pid)) throw err('ข้อมูลผู้เล่นไม่ถูกต้อง');
     return store.lock(function () {
       var r = getRoom(store, o.pin);
-      if (r.players[pid]) return { pid: pid, name: r.players[pid].n, title: r.title };
+      if (r.players[pid]) return { pid: pid, name: r.players[pid].n, title: r.title, mode: r.mode || 'live' };
       if (r.phase === 'end') throw err('เกมนี้จบแล้ว');
       if (r.order.length >= MAX_PLAYERS) throw err('ห้องเต็มแล้ว');
       var used = {}; r.order.forEach(function (x) { used[r.players[x].n.toLowerCase()] = 1; });
       var n = name, k = 2; while (used[n.toLowerCase()]) n = name + ' ' + k++;
-      r.players[pid] = { n: n, s: 0, st: 0, c: 0, j: store.now(), av: av };
+      r.players[pid] = { n: n, f: full, s: 0, st: 0, c: 0, j: store.now(), av: av };
       r.order.push(pid);
       save(store, r);
-      return { pid: pid, name: n, title: r.title };
+      return { pid: pid, name: n, title: r.title, mode: r.mode || 'live' };
     });
   }
 
   function answer(store, o) {
-    var r = getRoom(store, o.pin), pid = String(o.pid || ''), idx = Number(o.idx), c = Number(o.choice);
+    var r = getRoom(store, o.pin), pid = String(o.pid || ''), idx = Number(o.idx), c;
     if (!r.players[pid]) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
     if (r.phase !== 'question' || idx !== r.idx) return { late: true };
     var now = store.now();
     if (now > r.qEnd + 1500) return { late: true };
-    if (!(c >= 0 && c < r.qs[r.idx].c.length)) throw err('คำตอบไม่ถูกต้อง');
+    var q = r.qs[r.idx];
+    if (q.type === 'fill') {
+      if (!Array.isArray(o.choice) || o.choice.length !== q.k.length) throw err('กรุณาเติมให้ครบทุกช่อง');
+      c = o.choice.map(function (x) { return clip(x, 8); });
+    } else if (q.type === 'match') {
+      if (!Array.isArray(o.choice) || o.choice.length !== q.p.length) throw err('กรุณาจับคู่ให้ครบ');
+      c = o.choice.map(Number);
+      if (c.some(function (x) { return !(x >= 0 && x < q.p.length); })) throw err('คำตอบไม่ถูกต้อง');
+    } else {
+      c = Number(o.choice);
+      if (!(c >= 0 && c < q.c.length)) throw err('คำตอบไม่ถูกต้อง');
+    }
     var k = ansKey(r.pin, idx, pid);
     if (store.get(k)) return { dup: true };
     store.put(k, { c: c, ms: Math.max(0, now - r.qStart) });
     return { ok: true };
+  }
+
+  // ---------------------------------------------------------------- โหมดนักเรียนเล่นเอง
+  function selfRank(store, r, pid) {
+    var sps = store.getAll(r.order.map(function (x) { return spKey(r.pin, x); })), me = sps[spKey(r.pin, pid)] || { s: 0 }, rank = 1;
+    r.order.forEach(function (x) { var o2 = sps[spKey(r.pin, x)]; if (x !== pid && o2 && o2.s > me.s) rank++; });
+    return { rank: rank, players: r.order.length };
+  }
+  function sQuestion(store, o) {
+    var r = getRoom(store, o.pin), pid = String(o.pid || '');
+    if (!r.players[pid]) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
+    if (r.phase === 'end') return { ended: true };
+    if (r.mode !== 'self') throw err('ห้องนี้เป็นโหมดเล่นสด');
+    var k = spKey(r.pin, pid), sp = store.get(k) || { i: 0, s: 0, c: 0, st: 0, f: [], qs: 0, t0: 0 }, now = store.now();
+    if (sp.done || sp.i >= r.qs.length) { var rk = selfRank(store, r, pid); return { done: true, score: sp.s, correct: sp.c, total: r.qs.length, rank: rk.rank, players: rk.players, f: sp.f, stq: r.qs.map(function (x) { return x.st; }), stages: r.stages || [] }; }
+    if (o.peek && !sp.qs) return { peek: true, idx: sp.i, total: r.qs.length, stage: stageInfo(r, sp.i), theme: themeOf(r, sp.i), score: sp.s };
+    if (!sp.qs) { sp.qs = now; if (!sp.t0) sp.t0 = now; store.put(k, sp); }
+    var q = r.qs[sp.i];
+    return { idx: sp.i, total: r.qs.length, q: phoneQ(q), left: Math.max(0, q.t * 1000 - (now - sp.qs)), stage: stageInfo(r, sp.i), theme: themeOf(r, sp.i), score: sp.s };
+  }
+  function sAnswer(store, o) {
+    return store.lock(function () {
+      var r = getRoom(store, o.pin), pid = String(o.pid || ''), p = r.players[pid];
+      if (!p) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
+      if (r.phase === 'end') return { ended: true };
+      var k = spKey(r.pin, pid), sp = store.get(k), now = store.now();
+      if (!sp || sp.done || Number(o.idx) !== sp.i || !sp.qs) return { stale: true };
+      var q = r.qs[sp.i], ms = now - sp.qs, c = o.choice, a = null;
+      if (c != null && ms <= q.t * 1000 + 2500) {
+        if (q.type === 'fill' && Array.isArray(c) && c.length === q.k.length) a = { c: c.map(function (x) { return clip(x, 8); }), ms: ms };
+        else if (q.type === 'match' && Array.isArray(c) && c.length === q.p.length) a = { c: c.map(Number), ms: ms };
+        else if (q.type === 'mc' && Number(c) >= 0 && Number(c) < q.c.length) a = { c: Number(c), ms: ms };
+      }
+      var gr = grade(q, a), g = 0;
+      if (gr.ok) sp.st = (sp.st || 0) + 1; else sp.st = 0;
+      if (gr.frac > 0) g = Math.round((BASE + SPEED * Math.max(0, 1 - ms / (q.t * 1000))) * gr.frac) + (gr.ok && sp.st >= 3 ? STREAK : 0);
+      if (gr.ok) sp.c++;
+      sp.s += g; sp.f.push(Math.round(gr.frac * 1000) / 1000);
+      var mc = q.type === 'mc', nIt = gr.items ? gr.items.length : 0, cnt = gr.items ? gr.items.filter(Boolean).length : 0;
+      var txt = !a ? '(ไม่ได้ตอบ)' : mc ? q.c[a.c] || '' : q.type === 'fill' ? a.c.join(' ')
+        : q.p.map(function (x, i) { return x.l + '→' + (q.p[q.perm[a.c[i]]] || {}).r; }).join(' | ');
+      store.append('answers', [[new Date(now), r.pin, r.title, sp.i + 1, q.q, p.n, txt, gr.ok ? 'ถูก' : !mc && cnt ? 'ถูกบางส่วน ' + cnt + '/' + nIt : 'ผิด',
+        a ? Math.round(ms / 100) / 10 : '', g, sp.s, p.f || '']]);
+      var res = resultOf(q, { ok: gr.ok, g: g, ch: a ? a.c : -1, frac: gr.frac, items: gr.items });
+      sp.i++; sp.qs = 0; if (sp.i >= r.qs.length) sp.done = true;
+      store.put(k, sp);
+      var rk = selfRank(store, r, pid);
+      return { result: res, score: sp.s, correct: sp.c, streak: sp.st, idx: sp.i - 1, total: r.qs.length, done: sp.done, rank: rk.rank, players: rk.players };
+    });
   }
 
   // อีโมจิในห้องรอ (ไม่ใช้ lock — เสียบางอันได้ไม่เป็นไร)
@@ -207,10 +354,15 @@ var CQ = (function () {
   function playerPoll(store, o) {
     var r = getRoom(store, o.pin), pid = String(o.pid || ''), me = r.players[pid];
     if (!me) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
-    var out = { phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver, title: r.title, theme: r.theme || '', name: me.n, score: me.s, players: r.order.length };
+    var cq = r.qs[r.idx], sg = cq && r.stages && cq.st >= 0 ? r.stages[cq.st] : null;
+    var out = { phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver, title: r.title, theme: r.phase === 'lobby' || r.phase === 'end' ? r.theme || '' : themeOf(r, r.idx),
+      stage: sg ? { n: sg.n, ic: sg.ic, th: sg.th, no: cq.st + 1 } : null, name: me.n, score: me.s, players: r.order.length };
+    out.mode = r.mode || 'live';
+    if (r.phase === 'self') { var sp0 = store.get(spKey(r.pin, pid)) || {}; out.me = { i: sp0.i || 0, s: sp0.s || 0, c: sp0.c || 0, done: !!sp0.done }; out.score = sp0.s || 0; out.theme = r.theme || ''; return out; }
     if (r.phase === 'question') {
       var q = r.qs[r.idx];
-      out.q = { q: q.q, c: q.c, t: q.t }; out.left = Math.max(0, r.qEnd - store.now());
+      out.q = phoneQ(q);
+      out.left = Math.max(0, r.qEnd - store.now());
       out.answered = !!store.get(ansKey(r.pin, r.idx, pid));
     } else if (r.phase !== 'lobby') {
       var rk = ranking(r), pos = rk.indexOf(pid);
@@ -218,13 +370,13 @@ var CQ = (function () {
       if (pos > 0) { var ahead = r.players[rk[pos - 1]]; out.behind = { name: ahead.n, by: ahead.s - me.s }; }
       if (r.last && r.idx >= 0) {
         var q2 = r.qs[r.idx], res = r.last.res[pid] || { ch: -1, ok: false, g: 0 };
-        out.result = { ok: res.ok, gained: res.g, choice: res.ch, answer: q2.a, answerText: q2.c[q2.a], explain: q2.x };
+        out.result = resultOf(q2, res);
       }
     }
     return out;
   }
 
   return { createRoom: createRoom, next: next, reveal: reveal, showBoard: showBoard, end: end, kick: kick,
-    hostPoll: hostPoll, join: join, answer: answer, react: react, EMOJI: EMOJI, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
+    hostPoll: hostPoll, join: join, answer: answer, sQuestion: sQuestion, sAnswer: sAnswer, react: react, EMOJI: EMOJI, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
 })();
 if (typeof module !== 'undefined') module.exports = CQ;

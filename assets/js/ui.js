@@ -106,19 +106,19 @@ export function uid() {
 }
 
 // จ่าฝูงจิ้งจอกอาร์กติก (ฉากหิมะ)
-export const FOX = `<svg class="mascot fox" viewBox="0 0 140 150" aria-hidden="true">
+const FOX_T = `<svg class="mascot fox" viewBox="0 0 140 150" aria-hidden="true">
   <g class="m-body">
-    <path class="f-tail" d="M90 132 C128 128 140 92 122 64 C120 88 106 104 86 112 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path class="f-tail" d="M90 132 C128 128 140 92 122 64 C120 88 106 104 86 112 Z" fill="{F}" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
     <path d="M120 70 C126 84 124 100 116 112 C120 96 120 84 116 74 Z" fill="#DCE6F2"/>
-    <path d="M40 144 C34 112 44 92 70 88 C96 92 106 112 100 144 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M40 144 C34 112 44 92 70 88 C96 92 106 112 100 144 Z" fill="{F}" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
     <path d="M58 102 q12 12 24 0 q-3 20 -12 24 q-9 -4 -12 -24z" fill="#EEF4FB"/>
-    <ellipse cx="56" cy="143" rx="11" ry="6" fill="#fff" stroke="#22223B" stroke-width="3.5"/>
-    <ellipse cx="84" cy="143" rx="11" ry="6" fill="#fff" stroke="#22223B" stroke-width="3.5"/>
-    <path d="M45 46 L38 10 L66 36 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <ellipse cx="56" cy="143" rx="11" ry="6" fill="{F}" stroke="#22223B" stroke-width="3.5"/>
+    <ellipse cx="84" cy="143" rx="11" ry="6" fill="{F}" stroke="#22223B" stroke-width="3.5"/>
+    <path d="M45 46 L38 10 L66 36 Z" fill="{F}" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
     <path d="M47 39 L43 20 L59 35 Z" fill="#9FB4CC"/>
-    <path d="M95 46 L102 10 L74 36 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M95 46 L102 10 L74 36 Z" fill="{F}" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
     <path d="M93 39 L97 20 L81 35 Z" fill="#9FB4CC"/>
-    <path d="M38 60 C36 34 104 34 102 60 C102 70 108 74 100 78 C92 90 80 94 70 94 C60 94 48 90 40 78 C32 74 38 70 38 60 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M38 60 C36 34 104 34 102 60 C102 70 108 74 100 78 C92 90 80 94 70 94 C60 94 48 90 40 78 C32 74 38 70 38 60 Z" fill="{F}" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
     <g class="m-eyes"><ellipse cx="56" cy="60" rx="5" ry="6.5" fill="#22223B"/><ellipse cx="84" cy="60" rx="5" ry="6.5" fill="#22223B"/>
       <circle cx="58" cy="58" r="1.8" fill="#fff"/><circle cx="86" cy="58" r="1.8" fill="#fff"/></g>
     <path d="M54 50 l8 3 M86 50 l-8 3" stroke="#22223B" stroke-width="3" stroke-linecap="round"/>
@@ -130,4 +130,7 @@ export const FOX = `<svg class="mascot fox" viewBox="0 0 140 150" aria-hidden="t
     <path d="M86 98 l9 22 l-10 -3 z" fill="#4D8DFF" stroke="#22223B" stroke-width="3" stroke-linejoin="round"/>
     <g transform="translate(70 99)" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M0 -6 V6 M-5 -3 L5 3 M5 -3 L-5 3"/></g>
   </g></svg>`;
-export const mascotFor = (theme) => (theme === 'snow' ? FOX : MASCOT);
+export const foxSVG = (fur = '#fff') => FOX_T.split('{F}').join(fur);
+export const FOX = foxSVG('#fff');
+export const FOX_THEMES = ['snow', 'fire', 'earth', 'wind'];
+export const mascotFor = (theme) => (FOX_THEMES.includes(theme) ? FOX : MASCOT);

@@ -8,7 +8,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // ===================================================== ฉากตามเนื้อหา
 export const THEMES = {
   auto: 'อัตโนมัติ (ตามชื่อกิจกรรม)',
-  snow: '❄️ ด่านหิมะ', space: '🪐 อวกาศ', nature: '🌿 ธรรมชาติ', ocean: '🐠 ใต้ทะเล', lab: '🧪 ห้องทดลอง', math: '🔢 คณิตคิดสนุก', class: '✏️ ห้องเรียน',
+  snow: '❄️ ด่านหิมะ', fire: '🔥 ด่านอัคนี', earth: '🌿 ด่านปฐพี', wind: '🌪️ ด่านวายุ', space: '🪐 อวกาศ', nature: '🌿 ธรรมชาติ', ocean: '🐠 ใต้ทะเล', lab: '🧪 ห้องทดลอง', math: '🔢 คณิตคิดสนุก', class: '✏️ ห้องเรียน',
 };
 const KEYWORDS = [
   ['snow', /หิมะ|น้ำแข็ง|จิ้งจอก|ขั้วโลก|อาร์กติก|snow|arctic|fox/i],
@@ -43,7 +43,8 @@ export function backdrop(theme) {
   if (BD) { cancelAnimationFrame(BD.raf); BD.el.remove(); }
   document.body.classList.remove(...[...document.body.classList].filter((c) => c.startsWith('th-')));
   document.body.classList.add('th-' + theme);
-  if (theme === 'space' || theme === 'snow') document.body.classList.add('th-dark');
+  if (theme === 'space' || theme === 'snow' || theme === 'fire') document.body.classList.add('th-dark');
+  else document.body.classList.remove('th-dark');
   const el = document.createElement('div'); el.className = 'bd'; el.setAttribute('aria-hidden', 'true');
   el.innerHTML = STATIC[theme] || '';
   const cv = document.createElement('canvas'); el.appendChild(cv);
@@ -57,7 +58,15 @@ export function backdrop(theme) {
   const k = MOBILE ? 0.5 : 1;
   let parts = [], extra = [], t0 = performance.now();
 
-  if (theme === 'snow') {
+  if (theme === 'fire') {
+    parts = Array.from({ length: (110 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1.2), v: rnd(0.0015, 0.005), r: rnd(1, 3.4), p: rnd(0, 6.3), h: rnd(10, 45) }));
+  } else if (theme === 'earth') {
+    parts = Array.from({ length: (40 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), v: rnd(0.0003, 0.0012), r: rnd(1, 3), p: rnd(0, 6.3) }));
+    extra = Array.from({ length: (10 * k) | 0 }, () => ({ ch: pick(['🍂', '🌿', '🍃']), x: rnd(0, 1), y: rnd(-0.2, 1), sz: rnd(20, 32), v: rnd(0.008, 0.02), a: rnd(0, 6), p: rnd(0, 6) }));
+  } else if (theme === 'wind') {
+    parts = Array.from({ length: (26 * k) | 0 }, () => ({ x: rnd(-0.5, 1), y: rnd(0.05, 0.9), v: rnd(0.003, 0.008), l: rnd(0.08, 0.22), a: rnd(0.008, 0.03), p: rnd(0, 6.3) }));
+    extra = Array.from({ length: (12 * k) | 0 }, () => ({ ch: pick(['🍃', '🍂', '🌸', '🪶']), x: rnd(-0.2, 1), y: rnd(0.1, 0.9), sz: rnd(18, 30), v: rnd(0.004, 0.009), a: rnd(0, 6), p: rnd(0, 6) }));
+  } else if (theme === 'snow') {
     parts = Array.from({ length: (190 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), z: rnd(0.3, 1), p: rnd(0, 6.3) }));
   } else if (theme === 'space') {
     parts = Array.from({ length: (150 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.4, 1.9), p: rnd(0, 6.3), s: rnd(0.6, 2.2) }));
@@ -76,7 +85,29 @@ export function backdrop(theme) {
   const frame = (now) => {
     const t = (now - t0) / 1000, dt = 1 / 60;
     ctx.clearRect(0, 0, W, H);
-    if (theme === 'snow') {
+    if (theme === 'fire') {
+      ctx.globalCompositeOperation = 'lighter';
+      parts.forEach((e) => { e.y -= e.v; e.x += Math.sin(t * 2 + e.p) * 0.0008; if (e.y < -0.05) { e.y = 1.05; e.x = rnd(0, 1); }
+        const fl = 0.5 + 0.5 * Math.sin(t * 8 + e.p), g = ctx.createRadialGradient(e.x * W, e.y * H, 0, e.x * W, e.y * H, e.r * 3);
+        g.addColorStop(0, `hsla(${e.h},100%,70%,${0.9 * fl + 0.1})`); g.addColorStop(1, 'hsla(20,100%,50%,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x * W, e.y * H, e.r * 3, 0, 7); ctx.fill(); });
+      ctx.globalCompositeOperation = 'source-over';
+    } else if (theme === 'earth') {
+      ctx.fillStyle = '#C98A4B';
+      parts.forEach((d) => { d.y += d.v; d.x += Math.sin(t * 0.7 + d.p) * 0.0006; if (d.y > 1.02) { d.y = -0.02; d.x = rnd(0, 1); }
+        ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.r, 0, 7); ctx.fill(); });
+      extra.forEach((p) => { p.y += p.v * dt * 1.2; p.a += 0.01; if (p.y > 1.1) { p.y = -0.1; p.x = rnd(0, 1); }
+        const im = sprite(p.ch, p.sz | 0); ctx.globalAlpha = 0.8; ctx.save(); ctx.translate(p.x * W + Math.sin(t + p.p) * 40, p.y * H); ctx.rotate(p.a); ctx.drawImage(im, -im.width / 2, -im.height / 2); ctx.restore(); });
+    } else if (theme === 'wind') {
+      ctx.lineCap = 'round';
+      parts.forEach((w) => { w.x += w.v; if (w.x > 1.3) { w.x = rnd(-0.6, -0.2); w.y = rnd(0.05, 0.9); }
+        ctx.globalAlpha = 0.55; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath();
+        for (let q = 0; q <= 1; q += 0.05) { const X = (w.x + q * w.l) * W, Y = w.y * H + Math.sin(q * 8 + t * 2 + w.p) * 14 * (1 - q) + q * q * 30 * Math.sin(w.p);
+          q === 0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); }
+        ctx.stroke(); });
+      extra.forEach((p) => { p.x += p.v; p.a += 0.06; if (p.x > 1.1) { p.x = -0.1; p.y = rnd(0.1, 0.9); }
+        const im = sprite(p.ch, p.sz | 0), y = p.y * H + Math.sin(t * 2.5 + p.p) * 40; ctx.globalAlpha = 0.85; ctx.save(); ctx.translate(p.x * W, y); ctx.rotate(p.a); ctx.drawImage(im, -im.width / 2, -im.height / 2); ctx.restore(); });
+    } else if (theme === 'snow') {
       const wind = (BD.wind || 0) + Math.sin(t * 0.3) * 0.25;
       ctx.fillStyle = '#fff';
       parts.forEach((f) => {
@@ -132,6 +163,18 @@ const pines = (n, h, col, seed) => { let d = ''; for (let i = 0; i <= n; i++) { 
   d += `M${x - hh * 0.38} 200 L${x} ${200 - hh} L${x + hh * 0.38} 200 Z M${x - hh * 0.3} ${200 - hh * 0.45} L${x} ${200 - hh * 1.02} L${x + hh * 0.3} ${200 - hh * 0.45} Z `; }
   return `<path d="${d}" fill="${col}"/>`; };
 const STATIC = {
+  fire: `<div class="glow"></div>
+    <svg class="volc v1" viewBox="0 0 1440 300" preserveAspectRatio="none"><path d="M0 300 L0 210 L180 160 L300 190 L470 80 L520 70 L560 85 L720 190 L900 150 L1040 60 L1090 55 L1130 70 L1300 180 L1440 150 L1440 300Z" fill="#3A1410"/>
+      <path d="M470 80 L520 70 L560 85 L548 120 L530 105 L515 140 L500 110 L482 125 Z M1040 60 L1090 55 L1130 70 L1118 100 L1098 88 L1086 120 L1070 92 L1052 104 Z" fill="#FF6B2E" class="lava"/></svg>
+    <svg class="volc v2" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 200 L0 120 Q200 80 380 130 T760 110 T1100 140 T1440 100 L1440 200Z" fill="#200A08"/></svg>
+    <div class="lavafloor"></div><div class="heart">❤️‍🔥</div>`,
+  earth: `<svg class="mesa m1" viewBox="0 0 1440 300" preserveAspectRatio="none"><path d="M0 300 L0 150 L120 150 L140 110 L330 110 L350 150 L520 150 L540 90 L760 90 L790 160 L980 160 L1000 120 L1220 120 L1240 170 L1440 170 L1440 300Z" fill="#D9895A"/></svg>
+    <svg class="mesa m2" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 200 L0 110 Q240 60 480 105 T960 95 T1440 100 L1440 200Z" fill="#8C5A3C"/></svg>
+    <div class="crystal c1"></div><div class="crystal c2"></div><div class="crystal c3"></div><div class="vine"></div>`,
+  wind: `<div class="cl cl1">☁️</div><div class="cl cl2">☁️</div><div class="cl cl3">☁️</div><div class="cl cl4">☁️</div>
+    <div class="swirl s1"></div><div class="swirl s2"></div>
+    <svg class="hills2" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 200 L0 130 Q300 70 640 130 T1440 110 L1440 200Z" fill="#BFE3D0"/></svg>
+    <div class="mill"><i></i></div>`,
   snow: `<div class="aurora"><i></i><i></i><i></i></div><div class="smoon"></div>
     <svg class="mtn" viewBox="0 0 1440 300" preserveAspectRatio="none"><path d="M0 300 L0 190 L140 90 L230 150 L360 40 L470 140 L560 100 L700 20 L820 130 L930 70 L1060 160 L1180 60 L1300 140 L1440 90 L1440 300Z" fill="#2E5583"/>
       <path d="M360 40 L320 78 L345 72 L362 86 L380 70 L402 80 Z M700 20 L660 58 L688 52 L705 66 L722 50 L742 60 Z M1180 60 L1145 92 L1168 88 L1184 98 L1200 86 L1218 92 Z" fill="#EAF4FF"/></svg>

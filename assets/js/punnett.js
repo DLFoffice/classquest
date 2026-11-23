@@ -56,3 +56,24 @@ export function summaryHTML(P) {
     <div>${order.map((k) => `<span class="ps ${KEY_CLASS[k]}"><i></i>${esc(phenoName(P, k))} ${ph[k]}/${total} <em>(${Math.round((ph[k] / total) * 100)}%)</em></span>`).join('')}</div>
     <small>จีโนไทป์ ${g.map(([k, v]) => `${esc(k)} ${v}`).join(' : ')}</small></div>`;
 }
+
+// ===================================================== แบบฝึกเติมตาราง (1 ยีน)
+export const FUR = { D: '#8FA8C8', r: '#FFFFFF' };
+/** สร้างเฉลย/ตัวเลือกสำหรับข้อ "เติมตารางพันนิตต์" จาก "Bb x bb | ขนเทา | ขนขาว" */
+export function buildFill(src, hx) {
+  const P = parsePunnett(src);
+  if (!P) return { error: 'ใส่การผสม เช่น Bb x bb' };
+  if (P.error) return P;
+  if (P.n !== 1) return { error: 'แบบเติมตารางรองรับ 1 ยีน (ตาราง 2×2)' };
+  const U = P.p1[0].toUpperCase(), L = U.toLowerCase();
+  const cells = P.cells.flat().map((c) => c.geno);
+  const k = hx ? [...P.g1, ...P.g2, ...cells] : cells;
+  const pheno = (g) => (/[A-Z]/.test(g) ? 'D' : 'r');
+  return { P, k, h1: P.g1, h2: P.g2, hx: !!hx, opts: hx ? [U, L, U + U, U + L, L + L] : [U + U, U + L, L + L], fur: [FUR[pheno(P.p1)], FUR[pheno(P.p2)]] };
+}
+/** จัดรูปจีโนไทป์ให้ตัวใหญ่ขึ้นก่อน (bB → Bb) */
+export function normGeno(s) {
+  s = String(s || '');
+  if (s.length === 2 && s[0].toLowerCase() === s[1].toLowerCase() && s[0] !== s[0].toUpperCase() && s[1] === s[1].toUpperCase()) return s[1] + s[0];
+  return s;
+}
