@@ -2,6 +2,7 @@
 import { call, DEMO } from './api.js';
 import { $, $$, esc, shape, avatar, MASCOT, confetti, toast, sound, music, sleep } from './ui.js';
 import { SAMPLE } from './sample.js';
+import { THEMES, themeFor, backdrop, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, peek, flipRows, REDUCED } from './fx.js';
 
 const view = $('#view');
 const CFG = window.CQ_CONFIG || {};
@@ -34,6 +35,8 @@ function showSetup() {
       <h1>เตรียมภารกิจ<br>ของห้องเรียน</h1>
       <div><label class="label" for="iTitle">ชื่อกิจกรรม</label>
         <input class="input" id="iTitle" maxlength="80" value="${esc(SET.title)}" style="font-size:17px"></div>
+      <div><label class="label" for="selTheme">ฉากและเอฟเฟกต์</label>
+        <select class="input" id="selTheme" style="font-size:16px;padding:9px 12px">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${(SET.theme || 'auto') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       <p class="chip" id="sum"></p>
       ${DEMO ? '' : `<div><label class="label" for="iKey">รหัสครู (HOST_KEY)</label><input class="input" id="iKey" type="password" value="${esc(KEY)}" style="font-size:17px" autocomplete="current-password"></div>`}
       <button class="btn go big" id="bCreate">สร้างห้องเกม 🚀</button>
@@ -50,7 +53,10 @@ function showSetup() {
     </section>
   </div>`;
   renderList();
-  $('#iTitle').addEventListener('input', (e) => { SET.title = e.target.value; save(); });
+  const preview = () => backdrop(themeFor(SET.theme, SET.title));
+  preview();
+  $('#iTitle').addEventListener('input', (e) => { SET.title = e.target.value; save(); preview(); });
+  $('#selTheme').addEventListener('change', (e) => { SET.theme = e.target.value; save(); preview(); });
   $('#bAdd').onclick = () => { SET.questions.push({ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }); save(); renderList(); $('#qlist').lastElementChild.querySelector('textarea').focus(); };
   $('#bSample').onclick = () => { if (confirm('แทนที่ข้อคำถามทั้งหมดด้วยชุดตัวอย่าง?')) { SET = clone(SAMPLE); save(); showSetup(); } };
   $('#bClear').onclick = () => { if (confirm('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
@@ -139,7 +145,7 @@ async function createRoom() {
   const b = $('#bCreate'); b.disabled = true; b.textContent = 'กำลังสร้างห้อง…';
   try {
     if (!DEMO) { await call('check', { key: KEY }); SSset('key', KEY); }
-    const r = await call('create', { key: KEY, title: SET.title, questions: SET.questions.map(({ q, c, a, t, x }) => ({ q, c, a, t, x })) });
+    const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), questions: SET.questions.map(({ q, c, a, t, x }) => ({ q, c, a, t, x })) });
     PIN = r.pin; SSset('pin', PIN); lastKey = ''; startPoll();
   } catch (e) { toast(e.message); b.disabled = false; b.textContent = 'สร้างห้องเกม 🚀'; }
 }
@@ -165,13 +171,18 @@ function render(g) {
   G = g;
   const key = g.phase + ':' + g.idx;
   const chip = $('#phaseChip'); chip.hidden = false; chip.textContent = `ห้อง ${g.pin}`;
+  backdrop(g.theme || 'class');
   if (key !== lastKey) {
-    lastKey = key; clearInterval(timerT); revealing = false;
-    ({ lobby: vLobby, question: vQuestion, reveal: vReveal, board: vBoard, end: vEnd })[g.phase](g);
+    const first = !lastKey;
+    lastKey = key; clearInterval(timerT); revealing = false; document.body.classList.remove('hurry');
+    g._t = performance.now();
+    const fn = () => ({ lobby: vLobby, question: vQuestion, reveal: vReveal, board: vBoard, end: vEnd })[g.phase](g);
+    const label = { question: `ข้อ ${g.idx + 1}`, reveal: 'เฉลย!', board: '🏆 อันดับ', end: 'ผลสุดท้าย!' }[g.phase];
+    if (first || g.phase === 'lobby') fn(); else swap(fn, label);
   } else live(g);
 }
 function live(g) {
-  if (g.phase === 'lobby') updatePeople(g);
+  if (g.phase === 'lobby') { updatePeople(g); showReacts(g); }
   if (g.phase === 'question') {
     $('#nAns').textContent = g.answered; $('#nAll').textContent = g.players.length;
     if (g.players.length && g.answered >= g.players.length && !revealing) { revealing = true; setTimeout(() => doReveal(), 700); }
@@ -187,14 +198,14 @@ function vLobby(g) {
       <div class="url"><b>${esc(url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</b></div>
       <div class="qr" id="qr"></div>
       <p style="margin:0;font-size:20px">แล้วใส่รหัสห้อง</p>
-      <div class="pin-big">${g.pin}</div>
+      <div class="pin-big">${[...g.pin].map((d) => `<span class="dg">${d}</span>`).join('')}</div>
     </div>
     <div class="card crowd rise">
       <div class="crowd-head"><div><div style="font-size:18px" class="muted">${esc(g.title)} · ${g.total} ข้อ</div>
         <div><span class="count" id="nPeople">0</span> <span style="font-size:22px">คนพร้อมแล้ว</span></div></div>
         <button class="btn hot big" id="bGo">เริ่มเกม ▶</button></div>
       <div class="people" id="people"></div>
-      <p class="muted sarabun" style="margin:0;font-size:14px">คลิกที่ชื่อเพื่อนำออกจากห้อง · กด Space เพื่อเริ่ม</p>
+      <p class="muted sarabun" style="margin:0;font-size:14px">คลิกที่ชื่อเพื่อนำออกจากห้อง · นักเรียนกดส่งอีโมจิขึ้นจอได้ · กด Space เพื่อเริ่ม</p>
     </div></div>`;
   drawQR(link);
   $('#bGo').onclick = startGame;
@@ -219,6 +230,7 @@ function updatePeople(g) {
     if (box.querySelector(`[data-pid="${p.pid}"]`)) return;
     const el = document.createElement('span'); el.className = 'person'; el.dataset.pid = p.pid;
     el.style.setProperty('--rot', (Math.random() * 6 - 3).toFixed(1) + 'deg');
+    const ang = Math.random() * 6.283; el.style.setProperty('--fx', Math.round(Math.cos(ang) * 500) + 'px'); el.style.setProperty('--fy', Math.round(Math.sin(ang) * 400) + 'px');
     el.innerHTML = `<span class="av">${avatar(p.av)}</span>${esc(p.name)}`;
     el.title = 'คลิกเพื่อนำออก';
     el.onclick = async () => { if (confirm(`นำ "${p.name}" ออกจากห้อง?`)) { await call('kick', { key: KEY, pin: PIN, pid: p.pid }); } };
@@ -228,6 +240,10 @@ function updatePeople(g) {
   if (!g.players.length && !box.querySelector('.empty')) box.innerHTML = `<div class="empty"><div class="hero-mascot">${MASCOT}</div>รอเพื่อน ๆ เข้าห้อง…</div>`;
   else if (g.players.length) box.querySelector('.empty')?.remove();
 }
+const seenRx = new Set();
+function showReacts(g) {
+  (g.rx || []).forEach((r) => { if (seenRx.has(r.id)) return; seenRx.add(r.id); floatEmoji(r.e, esc(r.n)); });
+}
 function startGame() {
   if (!G.players.length && !confirm('ยังไม่มีนักเรียนในห้อง เริ่มเลยไหม?')) return;
   act('next');
@@ -236,13 +252,13 @@ function startGame() {
 function vQuestion(g) {
   music.start(true);
   const q = g.q, two = q.c.length === 2;
-  deadline = performance.now() + g.left;
+  deadline = (g._t || performance.now()) + g.left;
   const C = 2 * Math.PI * 54;
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>
       <div class="progress">${Array.from({ length: g.total }, (_, i) => `<i class="${i < g.idx ? 'done' : i === g.idx ? 'now' : ''}"></i>`).join('')}</div></div>
     <div class="qstage">
-      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>
+      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>
       <div class="timer" id="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/>
         <circle class="tr" id="ring" cx="65" cy="65" r="54" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg><b id="tNum">${q.t}</b></div>
     </div>
@@ -256,8 +272,13 @@ function vQuestion(g) {
     $('#ring').style.strokeDashoffset = C * (1 - left / (q.t * 1000));
     $('#tNum').textContent = sec;
     $('#timer').classList.toggle('low', left < 5500);
+    document.body.classList.toggle('hurry', left < 5500 && left > 0);
     if (sec !== lastSec) { if (sec <= 5 && sec > 0) sound.tick(sec <= 3); lastSec = sec; }
-    if (left <= 0) { clearInterval(timerT); setTimeout(doReveal, 900); }
+    if (left <= 0) {
+      clearInterval(timerT); document.body.classList.remove('hurry');
+      const st = document.createElement('div'); st.className = 'stamp'; st.textContent = 'หมดเวลา!'; document.body.appendChild(st);
+      sound.wrong(); setTimeout(() => st.remove(), 1400); setTimeout(doReveal, 1100);
+    }
   }, 100);
   live(g);
 }
@@ -277,25 +298,40 @@ function vReveal(g) {
     <div class="qstage"><div class="card qcard"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>
       <div class="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/></svg><b style="font-size:34px;line-height:1.1;text-align:center">${pctOk}%<small style="display:block;font-size:15px;font-weight:400">ตอบถูก</small></b></div></div>
     <div class="hans revealed ${two ? 'two' : ''}">${q.c.map((c, i) => `<div class="ha o${i} ${i === q.a ? 'right' : ''}">${shape(i)}<span>${esc(c)}</span>
-      <span class="cnt"><i style="width:0" data-w="${Math.round((g.dist[i] / max) * 120)}"></i>${g.dist[i]}</span>${i === q.a ? '<span class="tick">✓</span>' : ''}</div>`).join('')}</div>
+      <span class="cnt"><i style="width:0" data-w="${Math.round((g.dist[i] / max) * 120)}"></i><em data-n="${g.dist[i]}">0</em></span>${i === q.a ? '<span class="tick">✓</span>' : ''}</div>`).join('')}</div>
     <div class="qfoot"><div class="revnote">
         <div class="card">✅ ตอบถูก <b>${g.dist[q.a]}</b> จาก ${total} คน</div>
         ${g.fastest ? `<div class="card">⚡ ตอบถูกเร็วที่สุด: <b>${esc(g.fastest.name)}</b> (${(g.fastest.ms / 1000).toFixed(1)} วิ)</div>` : ''}
         ${q.x ? `<div class="card xpl">💡 ${esc(q.x)}</div>` : ''}</div>
       <button class="btn vio big" id="bBoard">ดูอันดับ ▶</button></div>`;
   requestAnimationFrame(() => setTimeout(() => $$('.cnt i').forEach((i) => (i.style.width = i.dataset.w + 'px')), 80));
+  $$('.cnt em').forEach((e) => countUp(e, 0, +e.dataset.n, 900));
+  setTimeout(() => sparkle($('.ha.right'), 16), 500);
+  const pc = total ? g.dist[q.a] / total : 0;
+  setTimeout(() => peek(MASCOT, !total ? 'เฉลยแล้ว!' : pc >= 0.8 ? 'ว้าว! เก่งกันทั้งห้องเลย 🎉' : pc >= 0.5 ? 'เยี่ยม! ถูกกันเกินครึ่ง 👍' : pc > 0 ? 'ข้อนี้ยากนะ ฟังเฉลยกันหน่อย 🤔' : 'โอ๊ะ! ไม่มีใครถูกเลย 😮', pc >= 0.5 ? 'happy' : 'sad'), 700);
+  if (pc >= 0.8 && total) setTimeout(() => confetti(90), 600);
   $('#bBoard').onclick = () => act('board');
 }
 
+let prevBoard = [];
 function vBoard(g) {
   const last = g.idx + 1 >= g.total, top = Math.max(1, ...g.board.map((b) => b.score));
+  const prev = prevBoard; prevBoard = g.board.map((b) => ({ name: b.name, score: b.score }));
+  const pIdx = (name) => { const k = prev.findIndex((p) => p.name === name); return k < 0 ? (prev.length ? g.board.length : null) : k; };
   view.innerHTML = `<div class="boardwrap">
     <h1 class="rise">🏆 อันดับหลังข้อ ${g.idx + 1}</h1>
-    ${g.board.length ? g.board.map((b, i) => `<div class="card brow" style="animation-delay:${i * 0.08}s"><span class="bar" style="width:0" data-w="${(b.score / top) * 100}"></span>
-      <span class="n">${b.rank}</span><span class="av">${avatar(b.av)}</span><span>${esc(b.name)}</span><span class="sc">${b.score.toLocaleString()}</span></div>`).join('')
+    ${g.board.length ? g.board.map((b, i) => { const pi = pIdx(b.name), up = pi != null && pi > i ? pi - i : 0;
+      return `<div class="card brow flip ${i === 0 ? 'top1' : ''}"><span class="bar" style="width:0" data-w="${(b.score / top) * 100}"></span>
+      <span class="n">${b.rank === 1 ? '👑' : b.rank}</span><span class="av">${avatar(b.av)}</span><span>${esc(b.name)}${up ? `<span class="mv">▲ ${up}</span>` : ''}</span>
+      <span class="sc" data-from="${(prev.find((p) => p.name === b.name) || { score: 0 }).score}" data-to="${b.score}">0</span></div>`; }).join('')
       : '<p class="empty">ยังไม่มีผู้เล่น</p>'}
     <div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn ${last ? 'hot' : 'go'} big" id="bNext">${last ? 'ดูผลสุดท้าย 🏆' : 'ข้อต่อไป ▶'}</button></div></div>`;
-  requestAnimationFrame(() => setTimeout(() => $$('.brow .bar').forEach((b) => (b.style.width = b.dataset.w + '%')), 60));
+  const rows = $$('.brow');
+  rows.forEach((el, i) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: i * 90, fill: 'backwards' }));
+  flipRows(rows, (i) => pIdx(g.board[i].name), rows[0] ? rows[0].offsetHeight + 16 : 0);
+  $$('.brow .sc').forEach((e) => countUp(e, +e.dataset.from, +e.dataset.to, 1400));
+  requestAnimationFrame(() => setTimeout(() => $$('.brow .bar').forEach((b) => (b.style.width = b.dataset.w + '%')), 600));
+  if (!REDUCED) setTimeout(() => sound.tone(880, 0.15, 'triangle', 0.12), 1500);
   $('#bNext').onclick = () => act('next');
 }
 
@@ -303,15 +339,21 @@ function vEnd(g) {
   stopPoll(); music.stop(); SSset('pin', '');
   const b = g.board, P = (i, cls) => b[i] ? `<div class="pod ${cls}"><div class="av">${avatar(b[i].av)}</div><div class="nm">${esc(b[i].name)}</div>
     <div class="sc">${b[i].score.toLocaleString()} คะแนน · ถูก ${b[i].correct}/${g.total}</div><div class="block">${i + 1}</div></div>` : '';
+  const P1 = b[0] ? P(0, 'p1').replace('<div class="av">', '<div class="av"><span class="crown">👑</span>') : '';
   view.innerHTML = `<div class="boardwrap" style="max-width:1200px">
     <h1 class="rise">🎉 ภารกิจสำเร็จ! ${esc(g.title)}</h1>
-    <div class="podium">${P(0, 'p1')}${P(1, 'p2')}${P(2, 'p3')}</div>
+    <div class="beam b1"></div><div class="beam b2"></div>
+    <div class="drum">🥁 แล้วผู้ชนะก็คือ…</div>
+    <div class="podium">${P1}${P(1, 'p2')}${P(2, 'p3')}</div>
     ${b.length > 3 ? `<div class="rest">${b.slice(3).map((x) => `<span class="chip">${x.rank}. ${avatar(x.av)} ${esc(x.name)} · ${x.score.toLocaleString()}</span>`).join('')}</div>` : ''}
     <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">
       <a class="btn vio big" href="results.html?pin=${g.pin}" target="_blank">📊 ดูสรุปผลรายคน</a>
       <button class="btn big" id="bNew">สร้างเกมใหม่</button></div></div>`;
-  setTimeout(() => { sound.fanfare(); confetti(220); }, 1300);
-  $('#bNew').onclick = () => { PIN = ''; G = null; lastKey = ''; shown = new Set(); showSetup(); };
+  [0, 0.6].forEach((d, k) => setTimeout(() => sound.tone(k ? 523 : 392, 0.25, 'triangle', 0.15), d * 1000));
+  for (let k = 0; k < 10; k++) setTimeout(() => sound.tick(k % 2), 1300 + k * 90);
+  setTimeout(() => { sound.fanfare(); confetti(240); fireworks(7000); }, 2300);
+  setTimeout(() => peek(MASCOT, 'ปรบมือให้แชมป์หน่อย! 👏', 'happy', 4500), 3400);
+  $('#bNew').onclick = () => { PIN = ''; G = null; lastKey = ''; shown = new Set(); prevBoard = []; showSetup(); };
 }
 
 // ===================================================== ปุ่มลัด

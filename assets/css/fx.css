@@ -1,0 +1,199 @@
+/* ===== ฉากหลังเคลื่อนไหว ===== */
+.bd{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.bd canvas{position:absolute;inset:0}
+
+/* อวกาศ */
+body.th-space{background:radial-gradient(ellipse at 20% 10%,#2C2470 0%,#17134A 45%,#0E0B2E 100%) fixed;color:#F4F1FF}
+body.th-space .muted{color:#CFC8FF}
+body.th-space .card,body.th-space .btn,body.th-space .chip,body.th-space .input,body.th-space .person,body.th-space select,body.th-space .opt{color:var(--ink)}
+body.th-space .card .muted{color:var(--ink2)}
+body.th-space .brand,body.th-space .hbar{color:#fff}
+body.th-space .dots span{background:#fff}
+.neb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;animation:drift 26s ease-in-out infinite alternate}
+.neb.n1{width:55vw;height:40vw;left:-10vw;top:-8vw;background:radial-gradient(#7B61FF,transparent 70%)}
+.neb.n2{width:45vw;height:35vw;right:-12vw;top:30vh;background:radial-gradient(#FF6B9A,transparent 70%);animation-duration:34s}
+@keyframes drift{to{transform:translate(6vw,4vh) scale(1.15)}}
+.solar{position:absolute;right:-170px;bottom:-170px;width:620px;height:620px;opacity:.9}
+.solar .sun{position:absolute;left:50%;top:50%;width:150px;height:150px;margin:-75px;border-radius:50%;
+  background:radial-gradient(circle at 40% 40%,#FFF3B0,#FFB627 55%,#FF7B2E);box-shadow:0 0 60px 20px rgba(255,182,39,.55),0 0 140px 60px rgba(255,107,107,.25);animation:sunpulse 4s ease-in-out infinite}
+@keyframes sunpulse{50%{box-shadow:0 0 80px 30px rgba(255,182,39,.7),0 0 180px 80px rgba(255,107,107,.3)}}
+.orbit{position:absolute;left:50%;top:50%;border:1.5px dashed rgba(255,255,255,.22);border-radius:50%;animation:spin linear infinite}
+.orbit i{position:absolute;top:50%;left:-1px;width:var(--ps);height:var(--ps);margin:calc(var(--ps)/-2);border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff8,var(--pc) 45%);box-shadow:0 0 12px var(--pc)}
+.orbit i.ring::after{content:'';position:absolute;inset:-6px -12px;border:3px solid #F5DEA0;border-radius:50%;transform:rotate(-20deg) scaleY(.35)}
+.orbit.o1{width:220px;height:220px;margin:-110px;animation-duration:9s}.orbit.o2{width:310px;height:310px;margin:-155px;animation-duration:15s}
+.orbit.o3{width:400px;height:400px;margin:-200px;animation-duration:22s}.orbit.o4{width:490px;height:490px;margin:-245px;animation-duration:31s}
+.orbit.o5{width:600px;height:600px;margin:-300px;animation-duration:46s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.moon{position:absolute;left:5vw;bottom:8vh;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#D7D3E8 60%,#A9A3C4);
+  box-shadow:0 0 30px rgba(255,255,255,.35);animation:bob 7s ease-in-out infinite}
+
+/* ใต้ทะเล */
+body.th-ocean{background:linear-gradient(180deg,#C9F1FF 0%,#7FD3F2 45%,#3FA2D6 100%) fixed}
+.rays i{position:absolute;top:-10vh;width:12vw;height:120vh;background:linear-gradient(180deg,rgba(255,255,255,.55),transparent 75%);transform:skewX(-18deg);animation:ray 6s ease-in-out infinite alternate;filter:blur(6px)}
+.rays i:nth-child(1){left:8vw}.rays i:nth-child(2){left:32vw;animation-delay:-2s;width:7vw}.rays i:nth-child(3){left:58vw;animation-delay:-4s}.rays i:nth-child(4){left:82vw;width:6vw;animation-delay:-1s}
+@keyframes ray{from{opacity:.25}to{opacity:.8}}
+.wave{position:absolute;left:0;bottom:0;width:200%;height:120px}
+.wave.w1{fill:#2B8CC4;opacity:.55;animation:wave 14s linear infinite}
+.wave.w2{fill:#1B6FA3;opacity:.7;height:90px;animation:wave 9s linear infinite reverse}
+@keyframes wave{to{transform:translateX(-50%)}}
+.weed{position:absolute;bottom:20px;font-size:64px;transform-origin:bottom;animation:sway 4s ease-in-out infinite alternate}
+.weed.s1{left:4vw}.weed.s2{left:46vw;font-size:52px;animation-delay:-1.5s}.weed.s3{right:6vw;animation-delay:-3s}
+@keyframes sway{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+
+/* ธรรมชาติ */
+body.th-nature{background:linear-gradient(180deg,#E3F6FF 0%,#F2FBE6 60%,#E1F3C9 100%) fixed}
+.nsun{position:absolute;right:6vw;top:6vh;width:110px;height:110px;border-radius:50%;background:radial-gradient(#FFF3B0,#FFC93C);box-shadow:0 0 50px rgba(255,201,60,.7)}
+.nsun i{position:absolute;inset:-70px;border-radius:50%;background:repeating-conic-gradient(rgba(255,201,60,.35) 0 8deg,transparent 8deg 22deg);animation:spin 40s linear infinite;
+  -webkit-mask:radial-gradient(circle,transparent 58px,#000 60px,transparent 120px);mask:radial-gradient(circle,transparent 58px,#000 60px,transparent 120px)}
+.hill{position:absolute;left:0;bottom:0;width:100%;height:24vh}
+.hill.h1{fill:#B9E58F;opacity:.75}.hill.h2{fill:#8BCF6A;opacity:.8;height:17vh}
+.cloud{position:absolute;font-size:90px;opacity:.85;animation:cloud 60s linear infinite}
+.cloud.c1{top:8vh;left:-10vw}.cloud.c2{top:22vh;left:-30vw;font-size:64px;animation-duration:85s;animation-delay:-30s}
+@keyframes cloud{to{transform:translateX(130vw)}}
+
+/* ห้องทดลอง */
+body.th-lab{background:linear-gradient(160deg,#EAFBF6,#E4ECFF) fixed}
+.hex{position:absolute;inset:0;opacity:.35;background:
+  radial-gradient(circle at 0 0,transparent 17px,#9DD9C7 18px,transparent 19px) 0 0/52px 30px}
+.atom{position:absolute;right:4vw;bottom:6vh;width:220px;height:220px;opacity:.55}
+.atom i{position:absolute;inset:0;border:3px solid #2EC4B6;border-radius:50%;animation:spin 6s linear infinite}
+.atom i:nth-child(1){transform:rotate(0) scaleY(.36)}.atom i:nth-child(2){transform:rotate(60deg) scaleY(.36)}.atom i:nth-child(3){transform:rotate(120deg) scaleY(.36)}
+.atom{animation:spin 24s linear infinite}
+.atom b{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px;border-radius:50%;background:#FF6B6B;box-shadow:0 0 20px #FF6B6B}
+
+/* คณิต */
+body.th-math{background:#FFFDF6}
+.grid{position:absolute;inset:-60px;background-image:linear-gradient(#DCE7FF 1.5px,transparent 1.5px),linear-gradient(90deg,#DCE7FF 1.5px,transparent 1.5px);
+  background-size:36px 36px;animation:gridmove 20s linear infinite}
+@keyframes gridmove{to{transform:translate(36px,36px)}}
+
+/* ===== ทรานซิชันแถบสีกวาด ===== */
+.wipe{position:fixed;inset:0;z-index:80;pointer-events:none;overflow:hidden}
+.wipe i{position:absolute;top:-20%;bottom:-20%;width:34%;border-left:4px solid var(--ink);border-right:4px solid var(--ink);transform:translateX(-160%) skewX(-14deg);
+  transition:transform .48s cubic-bezier(.7,0,.25,1)}
+.wipe i:nth-child(1){left:-8%;background:var(--c0)}.wipe i:nth-child(2){left:22%;background:var(--c1);transition-delay:.05s}
+.wipe i:nth-child(3){left:52%;background:var(--c2);transition-delay:.1s}.wipe i:nth-child(4){left:82%;background:var(--c3);transition-delay:.15s}
+.wipe.in i{transform:translateX(0) skewX(-14deg)}
+.wipe.out i{transform:translateX(400%) skewX(-14deg);transition-duration:.5s}
+.wipe-label{position:absolute;inset:0;display:grid;place-items:center}
+.wipe-label span{font-family:'Mitr';font-weight:600;font-size:clamp(44px,8vw,120px);color:#fff;-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;
+  text-shadow:8px 8px 0 var(--ink);transform:scale(0) rotate(-12deg);transition:transform .45s var(--spring) .2s}
+.wipe.in .wipe-label span{transform:scale(1) rotate(-4deg)}
+.wipe.out .wipe-label span{transform:scale(1.8) rotate(6deg);opacity:0;transition:all .35s ease-in}
+
+/* ===== ข้อความลอยเข้าทีละคำ ===== */
+.wd{display:inline-block;animation:wdin .55s var(--spring) both;animation-delay:var(--d)}
+@keyframes wdin{from{opacity:0;transform:translateY(26px) rotate(6deg) scale(.7);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+
+/* ===== นาทีระทึก (5 วินาทีสุดท้าย) ===== */
+body.hurry::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:70;box-shadow:inset 0 0 0 10px rgba(255,107,107,.0),inset 0 0 120px rgba(255,60,60,.45);animation:hurry .5s ease-in-out infinite alternate}
+@keyframes hurry{to{box-shadow:inset 0 0 0 10px rgba(255,107,107,.75),inset 0 0 180px rgba(255,60,60,.6)}}
+body.hurry .qcard{animation:jitter .25s linear infinite}
+@keyframes jitter{0%,100%{transform:translate(0)}25%{transform:translate(-1.5px,1px)}75%{transform:translate(1.5px,-1px)}}
+.stamp{position:fixed;left:50%;top:44%;z-index:85;font-family:'Mitr';font-weight:600;font-size:clamp(50px,9vw,130px);color:#fff;background:var(--c0);
+  border:6px solid var(--ink);border-radius:30px;padding:4px 40px 12px;box-shadow:10px 10px 0 var(--ink);pointer-events:none;
+  animation:stamp 1.3s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stamp{0%{transform:translate(-50%,-50%) scale(3) rotate(-20deg);opacity:0}25%{transform:translate(-50%,-50%) scale(1) rotate(-8deg);opacity:1}
+  80%{transform:translate(-50%,-50%) scale(1) rotate(-8deg);opacity:1}100%{transform:translate(-50%,-50%) scale(.6) rotate(-8deg);opacity:0}}
+
+/* ===== เฉลย ===== */
+.hans.revealed .ha:not(.right){animation:sink .7s cubic-bezier(.5,0,.75,0) both}
+.hans.revealed .ha:not(.right):nth-child(2){animation-delay:.08s}.hans.revealed .ha:not(.right):nth-child(3){animation-delay:.16s}.hans.revealed .ha:not(.right):nth-child(4){animation-delay:.24s}
+@keyframes sink{0%{transform:none;opacity:1;filter:none}40%{transform:translateY(-8px) rotate(-2deg)}100%{transform:perspective(600px) rotateX(55deg) translateY(16px) scale(.94);opacity:.3;filter:grayscale(.8)}}
+.hans.revealed .ha.right{animation:winner .9s var(--spring) .35s both;z-index:2}
+@keyframes winner{0%{transform:scale(1)}50%{transform:scale(1.1) rotate(-2deg)}100%{transform:scale(1.04) rotate(-1deg)}}
+.ha.right::before{content:'';position:absolute;inset:-60px;z-index:-1;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(255,230,102,.75) 0 10deg,transparent 10deg 24deg);animation:spin 7s linear infinite,fadein .6s .4s both;
+  -webkit-mask:radial-gradient(closest-side,#000 40%,transparent);mask:radial-gradient(closest-side,#000 40%,transparent)}
+.ha.right::after{content:'';position:absolute;inset:-5px;border-radius:24px;border:5px solid #FFE066;animation:glow 1.2s ease-in-out infinite alternate;pointer-events:none}
+@keyframes glow{from{box-shadow:0 0 0 0 rgba(255,224,102,.0)}to{box-shadow:0 0 30px 8px rgba(255,224,102,.9)}}
+@keyframes fadein{from{opacity:0}}
+.spk{position:absolute;z-index:3;font-size:calc(22px * var(--s));pointer-events:none;animation:spk 1.6s ease-out infinite;animation-delay:var(--d);text-shadow:0 0 8px #fff}
+@keyframes spk{0%{transform:scale(0) rotate(0);opacity:0}30%{transform:scale(1.2) rotate(90deg);opacity:1}100%{transform:scale(0) rotate(200deg);opacity:0}}
+
+/* ===== มาสคอตโผล่มุมจอ ===== */
+.peek{position:fixed;left:18px;bottom:-10px;z-index:75;display:flex;align-items:flex-end;gap:6px;pointer-events:none;animation:peekin .7s var(--spring) both}
+.peek .pm{width:110px}
+.peek .bubble{order:2;margin-bottom:120px;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:18px 18px 18px 4px;padding:8px 14px;font-size:20px;box-shadow:4px 4px 0 var(--ink);max-width:300px;animation:pop .5s .3s var(--spring) both}
+.peek.happy .pm{animation:hop .5s ease-in-out 3}
+.peek.sad .m-mouth{d:path('M52 88q8 -7 16 0')}
+@keyframes peekin{from{transform:translateY(120%)}}
+@keyframes hop{50%{transform:translateY(-26px)}}
+.peek.bye{transition:transform .6s ease-in;transform:translateY(130%)}
+
+/* ===== ห้องรอ ===== */
+.pin-big .dg{display:inline-block;animation:dgwave 2.4s ease-in-out infinite}
+.pin-big .dg:nth-child(2){animation-delay:.15s}.pin-big .dg:nth-child(3){animation-delay:.3s}.pin-big .dg:nth-child(4){animation-delay:.45s}
+@keyframes dgwave{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-14px) rotate(-6deg)}}
+.person{animation:flyin .8s var(--spring) both}
+@keyframes flyin{from{transform:translate(var(--fx,0),var(--fy,-200px)) rotate(-30deg) scale(.3);opacity:0}to{transform:rotate(var(--rot));opacity:1}}
+.floaty{position:fixed;bottom:-60px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:center;animation:floatup var(--dur) cubic-bezier(.2,.6,.4,1) forwards}
+.floaty b{font-size:54px;filter:drop-shadow(3px 3px 0 rgba(34,34,59,.35))}
+.floaty small{font-family:'Mitr';font-size:15px;background:#fff;color:var(--ink);border:2px solid var(--ink);border-radius:99px;padding:0 10px;margin-top:-4px}
+@keyframes floatup{0%{transform:translate(0,0) scale(.4) rotate(0);opacity:0}12%{opacity:1;transform:translate(0,-12vh) scale(1.15) rotate(var(--r))}
+  100%{transform:translate(var(--dx),-92vh) scale(.9) rotate(calc(var(--r) * -1));opacity:0}}
+.reacts{display:flex;gap:10px;justify-content:center}
+.reacts button{font-size:30px;width:58px;height:58px;border:3px solid var(--ink);border-radius:18px;background:#fff;box-shadow:3px 3px 0 var(--ink);cursor:pointer;transition:transform .15s var(--spring)}
+.reacts button:active{transform:scale(1.3) rotate(-10deg)}
+
+/* ===== อันดับ ===== */
+.brow .mv{font-size:16px;font-weight:600;color:var(--ok);background:#E3F8EF;border:2px solid var(--ok);border-radius:99px;padding:0 8px;margin-left:8px;animation:pop .5s 1.5s var(--spring) both}
+.brow.top1{background:linear-gradient(100deg,#fff 30%,#FFF4C2 50%,#fff 70%);background-size:300% 100%;animation:rise .5s var(--spring) both,shine 2.5s 1.6s linear infinite}
+@keyframes shine{from{background-position:100% 0}to{background-position:-200% 0}}
+
+/* ===== โพเดียม ===== */
+.stage{position:relative}
+.boardwrap{position:relative;z-index:1}
+.beam{position:fixed;top:-10vh;width:24vw;height:130vh;z-index:-1;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,rgba(255,240,170,.75),rgba(255,240,170,0) 85%);clip-path:polygon(42% 0,58% 0,100% 100%,0 100%);transform-origin:50% 0;animation:beam 3s ease-in-out infinite alternate,fadein 1s 2s forwards}
+.beam.b1{left:14vw;--a:-18deg}.beam.b2{right:14vw;--a:18deg;animation-delay:-1.5s,2s}
+@keyframes beam{from{transform:rotate(var(--a))}to{transform:rotate(calc(var(--a) * -1))}}
+@keyframes fadein{to{opacity:1}}
+.pod .av{position:relative}
+.crown{position:absolute;left:50%;top:-46px;font-size:54px;transform:translateX(-50%);animation:crown 1s 2.4s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes crown{from{transform:translate(-50%,-70vh) rotate(-40deg)}to{transform:translateX(-50%) rotate(-8deg)}}
+.pod.p1 .nm{animation:glowtext 1.4s 2.6s ease-in-out infinite alternate}
+@keyframes glowtext{to{text-shadow:0 0 18px #FFE066,0 0 4px #fff}}
+.pod .block{position:relative;overflow:hidden}
+.pod .block::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.65) 50%,transparent 70%);transform:translateX(-120%);animation:sweep 2.6s 2.6s ease-in-out infinite}
+@keyframes sweep{to{transform:translateX(120%)}}
+.drum{text-align:center;font-size:26px;margin:-6px 0 6px;animation:pulse .4s ease-in-out 6}
+
+/* ===== มือถือ ===== */
+.pans.picked button:not(.sel){animation:flyout .45s ease-in both}
+.pans.picked button.sel{animation:chosen .5s var(--spring) both;z-index:2}
+@keyframes flyout{to{transform:scale(.4) rotate(20deg);opacity:0}}
+@keyframes chosen{50%{transform:scale(1.12)}to{transform:scale(1.04)}}
+.sent .big-shape{position:relative}
+.sent .big-shape::before,.sent .big-shape::after{content:'';position:absolute;inset:-18px;border:4px dashed var(--ink);border-radius:50%;animation:spin 3s linear infinite;opacity:.5}
+.sent .big-shape::after{inset:-34px;animation-duration:5s;animation-direction:reverse;border-color:var(--c3)}
+.res{position:relative;overflow:hidden;z-index:0}
+.res.ok::before{content:'';position:absolute;inset:-60%;z-index:-1;background:repeating-conic-gradient(rgba(255,255,255,.22) 0 12deg,transparent 12deg 30deg);animation:spin 6s linear infinite}
+.res.bad::before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 20% 0,rgba(255,255,255,.2) 2px,transparent 3px) 0 0/22px 22px;animation:rain .8s linear infinite}
+@keyframes rain{to{background-position:0 22px}}
+.res .icon{display:inline-block;animation:iconpop 1s var(--spring) both}
+@keyframes iconpop{0%{transform:scale(0) rotate(-180deg)}100%{transform:scale(1) rotate(0)}}
+.rk-up{display:inline-block;margin-left:6px;color:var(--ok);font-weight:600;animation:pop .5s .6s var(--spring) both}
+.streak{animation:pop .5s .4s var(--spring) both}
+.streak .fire{display:inline-block;animation:fire .3s ease-in-out infinite alternate}
+@keyframes fire{to{transform:scale(1.25) rotate(8deg)}}
+.final-medal{animation:medal 1.6s var(--spring) both;display:inline-block}
+@keyframes medal{0%{transform:perspective(500px) rotateY(0) scale(0)}70%{transform:perspective(500px) rotateY(720deg) scale(1.2)}100%{transform:perspective(500px) rotateY(720deg) scale(1)}}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ข้อความบนพื้นสว่างในฉากมืด */
+body.th-space .timer b,body.th-space .answered b,body.th-space .streak,body.th-space .pl-score,body.th-space .icon-btn,
+body.th-space .reacts button,body.th-space .rk-up,body.th-space .mv{color:var(--ink)}
+body.th-space .timer.low b{color:var(--c0)}
+body.th-space .rk-up{color:var(--ok)}
+.reacts{flex-wrap:wrap}
+.reacts button{width:50px;height:50px;font-size:26px}
+.drum{animation:pulse .4s ease-in-out 5,drumout .5s 2.1s forwards}
+@keyframes drumout{to{opacity:0;transform:translateY(-10px)}}
+.podium{margin-top:26px}
+.pod.p1 .block{height:190px}.pod.p2 .block{height:140px}.pod.p3 .block{height:105px}
+body.th-space .pod .sc{color:#CFC8FF}

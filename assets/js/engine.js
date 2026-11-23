@@ -6,6 +6,8 @@ var CQ = (function () {
   var BASE = 500, SPEED = 500, STREAK = 100;
 
   function err(msg) { var e = new Error(msg); e.cq = true; return e; }
+  function rxKey(pin) { return 'rx_' + pin; }
+  var EMOJI = ['🎉', '😆', '👍', '❤️', '🔥', '🚀'];
   function roomKey(pin) { return 'room_' + pin; }
   function ansKey(pin, idx, pid) { return 'a_' + pin + '_' + idx + '_' + pid; }
   function getRoom(store, pin) {
@@ -52,7 +54,7 @@ var CQ = (function () {
         if (!store.get(roomKey(p))) pin = p;
       }
       if (!pin) throw err('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง');
-      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', qs: qs, phase: 'lobby', idx: -1,
+      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', theme: clip(o.theme, 12), qs: qs, phase: 'lobby', idx: -1,
         qStart: 0, qEnd: 0, players: {}, order: [], created: store.now(), last: null, ver: 0 };
       save(store, r);
       store.append('rooms', [[new Date(store.now()), pin, r.title, qs.length, 'สร้างห้อง']]);
@@ -135,9 +137,10 @@ var CQ = (function () {
 
   /** มุมมองของครู */
   function view(store, r) {
-    var out = { pin: r.pin, title: r.title, phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver,
+    var out = { pin: r.pin, title: r.title, theme: r.theme || '', phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver,
       players: r.order.map(function (pid) { var p = r.players[pid]; return { pid: pid, name: p.n, av: p.av }; }) };
     if (r.idx >= 0) out.q = r.qs[r.idx];
+    if (r.phase === 'lobby') out.rx = (store.get(rxKey(r.pin)) || []).filter(function (x) { return x.t > store.now() - 6000; });
     if (r.phase === 'question') {
       out.left = Math.max(0, r.qEnd - store.now());
       var got = store.getAll(r.order.map(function (pid) { return ansKey(r.pin, r.idx, pid); }));
@@ -189,10 +192,20 @@ var CQ = (function () {
     return { ok: true };
   }
 
+  // อีโมจิในห้องรอ (ไม่ใช้ lock — เสียบางอันได้ไม่เป็นไร)
+  function react(store, o) {
+    var r = getRoom(store, o.pin), p = r.players[String(o.pid || '')], e = Number(o.e);
+    if (!p || r.phase !== 'lobby' || !(e >= 0 && e < EMOJI.length)) return { ok: false };
+    var now = store.now(), list = (store.get(rxKey(r.pin)) || []).filter(function (x) { return x.t > now - 6000; });
+    list.push({ t: now, n: p.n, e: EMOJI[e], id: now + '_' + String(o.pid).slice(0, 4) });
+    store.put(rxKey(r.pin), list.slice(-40));
+    return { ok: true };
+  }
+
   function playerPoll(store, o) {
     var r = getRoom(store, o.pin), pid = String(o.pid || ''), me = r.players[pid];
     if (!me) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
-    var out = { phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver, title: r.title, name: me.n, score: me.s, players: r.order.length };
+    var out = { phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver, title: r.title, theme: r.theme || '', name: me.n, score: me.s, players: r.order.length };
     if (r.phase === 'question') {
       var q = r.qs[r.idx];
       out.q = { q: q.q, c: q.c, t: q.t }; out.left = Math.max(0, r.qEnd - store.now());
@@ -210,6 +223,6 @@ var CQ = (function () {
   }
 
   return { createRoom: createRoom, next: next, reveal: reveal, showBoard: showBoard, end: end, kick: kick,
-    hostPoll: hostPoll, join: join, answer: answer, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
+    hostPoll: hostPoll, join: join, answer: answer, react: react, EMOJI: EMOJI, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
 })();
 if (typeof module !== 'undefined') module.exports = CQ;
