@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>ห้องเรียนผจญภัย · จอครู</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/cq.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/engine.js"></script>
+</head>
+<body>
+  <div class="host">
+    <header class="hbar noprint">
+      <div class="brand"><span class="logo">✏️</span><span id="brandName">ห้องเรียนผจญภัย</span><span class="chip" id="phaseChip" hidden></span></div>
+      <div class="right">
+        <button class="icon-btn" id="bSound" title="เปิด/ปิดเสียง (M)">🔊</button>
+        <button class="icon-btn" id="bFull" title="เต็มจอ (F)">⛶</button>
+        <a class="btn sm" href="results.html" target="_blank" id="bResults">📊 สรุปผล</a>
+      </div>
+    </header>
+    <main class="hmain" id="view"></main>
+  </div>
+  <div class="modal" id="mImport" hidden>
+    <div class="card">
+      <h2 style="margin:0 0 6px">วางข้อคำถามจาก Excel / Google Sheets</h2>
+      <p class="muted sarabun" style="margin:0 0 10px">1 แถวต่อ 1 ข้อ เรียงคอลัมน์: <b>คำถาม | ตัวเลือก 1 | ตัวเลือก 2 | ตัวเลือก 3 | ตัวเลือก 4 | ข้อที่ถูก (1–4) | เวลา (วินาที) | คำอธิบาย</b><br>
+        ข้อถูก/ผิด เว้นตัวเลือก 3–4 ว่างไว้ · คอลัมน์เวลาและคำอธิบายไม่บังคับ</p>
+      <textarea id="taImport" placeholder="คัดลอกจากตารางแล้ววางที่นี่ (Ctrl+V)"></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+        <button class="btn sm ghost" id="bImpCancel">ยกเลิก</button>
+        <button class="btn sm" id="bImpAppend">เพิ่มต่อท้าย</button>
+        <button class="btn sm go" id="bImpReplace">แทนที่ทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="assets/js/host.js"></script>
+</body>
+</html>

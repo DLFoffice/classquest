@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>ห้องเรียนผจญภัย · สรุปผล</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/cq.css">
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/engine.js"></script>
+</head>
+<body>
+  <form class="card login" id="login" hidden>
+    <div class="hero-mascot" id="lgMascot" style="width:90px;margin:0 auto"></div>
+    <h2 style="margin:0">สรุปผลการตอบคำถาม</h2>
+    <input class="input" id="iKey" type="password" placeholder="รหัสครู (HOST_KEY)" autocomplete="current-password" required>
+    <button class="btn go">เข้าดูผล</button>
+  </form>
+  <div class="rp" id="rp" hidden>
+    <header class="rp-head">
+      <div class="brand"><span class="logo">📊</span>สรุปผลการตอบคำถาม</div>
+      <div class="ctl noprint">
+        <select id="selRoom"></select>
+        <button class="btn sm" id="bReload">↻ รีเฟรช</button>
+        <button class="btn sm" id="bCsv">⬇ ไฟล์ CSV</button>
+        <button class="btn sm sun" id="bPrint">🖨 พิมพ์ / PDF</button>
+      </div>
+    </header>
+    <div id="out"></div>
+  </div>
+  <script type="module" src="assets/js/results.js"></script>
+</body>
+</html>
