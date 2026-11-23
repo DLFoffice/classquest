@@ -1,6 +1,8 @@
 // สรุปผลรายห้อง: ภาพรวม · อัตราตอบถูกรายข้อ · ตารางรายคน (✓/✗ ทุกข้อ) · ส่งออก CSV
 import { call, DEMO } from './api.js';
-import { $, esc, MASCOT, toast } from './ui.js';
+import { $, $$, esc, MASCOT, toast } from './ui.js';
+import { backdrop, countUp } from './fx.js';
+backdrop('class');
 
 let KEY = sessionStorage.getItem('cqh:key') || '';
 let D = null;
@@ -64,31 +66,61 @@ function compute() {
   return { pin, title, qn, qs, people, total: qn.length, finished: final.length > 0 };
 }
 
-function color(r) { return r >= 0.8 ? 'var(--c2)' : r >= 0.5 ? 'var(--c1)' : 'var(--c0)'; }
+function tone(r) { return r >= 0.8 ? 'good' : r >= 0.5 ? 'mid' : 'low'; }
+const MEDAL = ['🥇', '🥈', '🥉'];
+function ring(p, col) {
+  const C = 2 * Math.PI * 26;
+  return `<svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="rb"/><circle cx="32" cy="32" r="26" class="rf" style="stroke:${col};stroke-dasharray:${C};stroke-dashoffset:${C * (1 - p)}"/></svg>`;
+}
 function render() {
-  if (!D || !$('#selRoom').value) { $('#out').innerHTML = `<div class="card sec center"><div class="hero-mascot" style="width:100px;margin:auto">${MASCOT}</div><p>ยังไม่มีผลการเล่น — เมื่อเฉลยข้อแรกแล้ว ข้อมูลจะขึ้นที่นี่</p></div>`; return; }
+  if (!D || !$('#selRoom').value) { $('#out').innerHTML = `<div class="rc empty-rc"><div class="mj-m" style="width:110px;margin:auto">${MASCOT}</div><p>ยังไม่มีผลการเล่น — เมื่อเฉลยข้อแรกแล้ว ข้อมูลจะขึ้นที่นี่</p></div>`; return; }
   const s = compute(), P = s.people, N = P.length;
-  const avg = N ? P.reduce((a, p) => a + p.correct, 0) / N : 0;
-  const hard = s.qs.slice().sort((a, b) => a.rate - b.rate)[0];
+  const avg = N ? P.reduce((a, p) => a + p.correct, 0) / N : 0, avgP = s.total ? avg / s.total : 0;
   const pass = P.filter((p) => s.total && p.correct / s.total >= 0.5).length;
+  const hardList = s.qs.slice().sort((a, b) => a.rate - b.rate).filter((q) => q.rate < 0.6).slice(0, 3);
+  const hard = s.qs.slice().sort((a, b) => a.rate - b.rate)[0];
+  const strong = s.qs.filter((q) => q.rate >= 0.8).length;
+  const date = (D.answers.find((r) => r[1] === s.pin && r[2] === s.title) || [''])[0];
   $('#out').innerHTML = `
-    <h1 style="margin:0 0 14px;font-size:28px">${esc(s.title)} <span class="chip">ห้อง ${esc(s.pin)}</span> ${s.finished ? '' : '<span class="chip" style="background:#FFE3E3">ยังเล่นไม่จบ</span>'}</h1>
-    <div class="kp">
-      <div class="card"><small>นักเรียน</small><b>${N} คน</b></div>
-      <div class="card"><small>ตอบถูกเฉลี่ย</small><b>${avg.toFixed(1)} / ${s.total}</b></div>
-      <div class="card"><small>ผ่านเกณฑ์ (ถูก ≥ 50%)</small><b>${pass} คน</b><small>${N ? Math.round((pass / N) * 100) : 0}% ของห้อง</small></div>
-      <div class="card"><small>ข้อที่ยากที่สุด</small><b>${hard ? 'ข้อ ' + hard.q : '-'}</b><small>${hard ? `ตอบถูก ${Math.round(hard.rate * 100)}%` : ''}</small></div>
+    <section class="rp-hero">
+      <div class="rp-hero-m">${MASCOT}</div>
+      <div class="rp-hero-t"><small>สรุปผลการเรียนรู้ · ห้อง ${esc(s.pin)}${date ? ' · ' + esc(String(date).slice(0, 16)) : ''}</small>
+        <h1>${esc(s.title)}</h1>
+        <p>${s.finished ? '✅ เล่นจบแล้ว' : '⏳ ยังเล่นไม่จบ'} · ${s.total} ข้อ · นักเรียน ${N} คน</p></div>
+      <div class="rp-hero-score">${ring(avgP, '#fff')}<b>${Math.round(avgP * 100)}%</b><small>ตอบถูกเฉลี่ย</small></div>
+    </section>
+    <div class="kp2">
+      <div class="k"><i style="--kc:#7B61FF">👥</i><div><b data-n="${N}">0</b><small>นักเรียนที่ร่วมเล่น</small></div></div>
+      <div class="k"><i style="--kc:#2EC4B6">🎯</i><div><b>${avg.toFixed(1)}<em>/${s.total}</em></b><small>ข้อที่ตอบถูกเฉลี่ย</small></div></div>
+      <div class="k"><i style="--kc:#22B07D">✅</i><div><b data-n="${pass}">0</b><em class="sub">${N ? Math.round((pass / N) * 100) : 0}% ของห้อง</em><small>ผ่านเกณฑ์ (ถูก ≥ 50%)</small></div></div>
+      <div class="k"><i style="--kc:#FF6B6B">🧩</i><div><b>${hard ? 'ข้อ ' + hard.q : '-'}</b><em class="sub">${hard ? `ตอบถูก ${Math.round(hard.rate * 100)}%` : ''}</em><small>ข้อที่ยากที่สุด</small></div></div>
     </div>
-    <section class="card sec"><h2>อัตราการตอบถูกรายข้อ</h2><div class="qbars">${s.qs.map((q) => `
-      <div class="qb"><span class="no">${q.q}</span><span class="t">${esc(q.text)}${q.wrongTop && q.rate < 0.8 ? `<br><small class="muted">คำตอบผิดที่พบบ่อย: ${esc(q.wrongTop[0])} (${q.wrongTop[1]} คน)</small>` : ''}</span>
-        <span class="track"><i style="width:${q.rate * 100}%;background:${color(q.rate)}"></i><span>${q.ok}/${q.n} · ${Math.round(q.rate * 100)}%</span></span></div>`).join('')}</div></section>
-    <section class="card sec"><h2>ผลรายบุคคล</h2><div class="scroll"><table class="tbl">
-      <tr><th>อันดับ</th><th class="l">ชื่อ</th><th>คะแนน</th><th>ถูก</th><th>ร้อยละ</th>${s.qn.map((q) => `<th>ข้อ ${q}</th>`).join('')}<th>เวลาเฉลี่ย (วิ)</th></tr>
-      ${P.map((p) => `<tr><td>${p.rank}</td><td class="l">${esc(p.n)}</td><td>${p.score.toLocaleString()}</td><td>${p.correct}/${s.total}</td>
-        <td>${s.total ? Math.round((p.correct / s.total) * 100) : 0}%</td>
-        ${s.qn.map((q) => { const r = p.by[q]; return `<td class="${r && r[7] === 'ถูก' ? 'y' : 'n'}" title="${esc(r ? r[6] : 'ไม่ได้ตอบ')}">${r ? (r[7] === 'ถูก' ? '✓' : r[6] === '(ไม่ได้ตอบ)' ? '–' : '✗') : '–'}</td>`; }).join('')}
-        <td>${p.avgT == null ? '-' : p.avgT.toFixed(1)}</td></tr>`).join('')}
-    </table></div><p class="muted sarabun" style="font-size:13px;margin:8px 0 0">✓ ถูก · ✗ ผิด · – ไม่ได้ตอบ (ชี้ที่เครื่องหมายเพื่อดูคำตอบที่เลือก)</p></section>`;
+    <div class="rp-grid">
+      <section class="rc"><h2><span>📈</span>อัตราการตอบถูกรายข้อ</h2>
+        <div class="qrows">${s.qs.map((q, i) => `
+          <div class="qrow ${tone(q.rate)}" style="--d:${i * 0.05}s">
+            <span class="qn">${q.q}</span>
+            <div class="qt">${esc(q.text)}${q.wrongTop && q.rate < 0.8 ? `<small>คำตอบผิดที่พบบ่อย: <b>${esc(q.wrongTop[0])}</b> (${q.wrongTop[1]} คน)</small>` : ''}</div>
+            <div class="qbar"><i style="--w:${q.rate * 100}%"></i></div>
+            <span class="qp">${Math.round(q.rate * 100)}%<small>${q.ok}/${q.n}</small></span>
+          </div>`).join('')}</div>
+        <p class="legend"><span class="good">● ≥ 80% เข้าใจดี</span><span class="mid">● 50–79% พอใช้</span><span class="low">● &lt; 50% ควรทบทวน</span></p>
+      </section>
+      <aside class="rc tips"><h2><span>💡</span>สิ่งที่ควรสอนซ้ำ</h2>
+        ${hardList.length ? hardList.map((q) => `<div class="tip"><b>ข้อ ${q.q}</b> · ตอบถูก ${Math.round(q.rate * 100)}%<p>${esc(q.text)}</p>${q.wrongTop ? `<small>นักเรียนมักตอบ “${esc(q.wrongTop[0])}”</small>` : ''}</div>`).join('')
+          : '<div class="tip ok"><b>เยี่ยมมาก!</b><p>ทุกข้อมีนักเรียนตอบถูกตั้งแต่ 60% ขึ้นไป</p></div>'}
+        <div class="tip strong"><b>จุดแข็งของห้อง</b><p>${strong} จาก ${s.total} ข้อ ที่นักเรียนตอบถูกตั้งแต่ 80% ขึ้นไป</p></div>
+      </aside>
+    </div>
+    <section class="rc"><h2><span>🧑‍🎓</span>ผลรายบุคคล</h2><div class="scroll"><table class="tb">
+      <thead><tr><th>อันดับ</th><th class="l">ชื่อ</th><th>คะแนน</th><th class="l">ตอบถูก</th>${s.qn.map((q) => `<th>${q}</th>`).join('')}<th>เวลาเฉลี่ย</th></tr></thead>
+      <tbody>${P.map((p) => { const pc = s.total ? p.correct / s.total : 0; return `<tr>
+        <td><span class="rk r${p.rank}">${MEDAL[p.rank - 1] || p.rank}</span></td><td class="l nm">${esc(p.n)}</td><td class="sc">${p.score.toLocaleString()}</td>
+        <td class="l"><div class="minibar ${tone(pc)}"><i style="width:${pc * 100}%"></i></div><span class="mt">${p.correct}/${s.total}</span></td>
+        ${s.qn.map((q) => { const r = p.by[q], ok = r && r[7] === 'ถูก', none = !r || r[6] === '(ไม่ได้ตอบ)'; return `<td><span class="dot ${ok ? 'y' : none ? 'z' : 'n'}" title="${esc(r ? r[6] : 'ไม่ได้ตอบ')}">${ok ? '✓' : none ? '–' : '✕'}</span></td>`; }).join('')}
+        <td class="tm">${p.avgT == null ? '-' : p.avgT.toFixed(1) + ' วิ'}</td></tr>`; }).join('')}</tbody>
+    </table></div><p class="legend"><span class="good">✓ ถูก</span><span class="low">✕ ผิด</span><span>– ไม่ได้ตอบ</span><span>· ชี้ที่วงกลมเพื่อดูคำตอบที่เลือก</span></p></section>`;
+  $$('.kp2 [data-n]').forEach((e) => countUp(e, 0, +e.dataset.n, 900));
 }
 
 function csv() {

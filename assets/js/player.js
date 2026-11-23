@@ -17,25 +17,41 @@ const POLL = DEMO ? 700 : 1800;
 function showJoin(err) {
   stopPoll();
   $('#me').hidden = true;
-  const pinQ = new URLSearchParams(location.search).get('pin') || (me && me.pin) || '';
+  backdrop('class');
+  const pinQ = (new URLSearchParams(location.search).get('pin') || (me && me.pin) || '').replace(/\D/g, '').slice(0, 4);
   const av = me ? me.av : Math.floor(Math.random() * AVATARS.length);
   view.innerHTML = `
-    <div class="hero-mascot rise">${MASCOT}</div>
-    <h1 class="center rise">พร้อมผจญภัยหรือยัง?</h1>
-    <form class="card join-card rise" id="fJoin" autocomplete="off">
-      <span class="tape"></span>
-      <label class="label" for="iPin">รหัสห้อง (ดูบนจอครู)</label>
-      <input class="input pin-input" id="iPin" inputmode="numeric" maxlength="4" pattern="\\d{4}" value="${esc(pinQ)}" placeholder="0000" required>
-      <label class="label" for="iName" style="margin-top:14px">ชื่อเล่นของฉัน</label>
-      <input class="input" id="iName" maxlength="20" value="${esc(me ? me.name : '')}" placeholder="เช่น น้องมะลิ" required>
-      <p class="label" style="margin-top:14px">เลือกตัวละคร</p>
-      <div class="avs" role="radiogroup">${AVATARS.map((a, i) => `<button type="button" role="radio" aria-checked="${i === av}" data-i="${i}">${a}</button>`).join('')}</div>
-      <button class="btn go big" style="width:100%;margin-top:18px" id="bJoin">เข้าห้องเลย 🚀</button>
+    <form class="mj" id="fJoin" autocomplete="off">
+      <div class="mj-hero"><div class="mj-m">${MASCOT}</div>
+        <div><small>ห้องเรียนผจญภัย</small><h1>พร้อมผจญภัย<br>หรือยัง?</h1></div></div>
+      <div class="mj-body">
+        <p class="mj-lbl">รหัสห้อง <span>ดูบนจอคุณครู</span></p>
+        <div class="pinbox">${[0, 1, 2, 3].map((i) => `<input class="pd" inputmode="numeric" maxlength="1" aria-label="รหัสหลักที่ ${i + 1}" value="${pinQ[i] || ''}">`).join('')}</div>
+        <input type="hidden" id="iPin" value="${esc(pinQ)}">
+        <label class="mj-lbl" for="iName">ชื่อเล่นของฉัน</label>
+        <div class="mj-in"><span>😊</span><input id="iName" maxlength="20" value="${esc(me ? me.name : '')}" placeholder="เช่น น้องมะลิ" required></div>
+        <p class="mj-lbl">เลือกตัวละคร <span id="avName"></span></p>
+        <div class="avs mj-avs" role="radiogroup">${AVATARS.map((a, i) => `<button type="button" role="radio" aria-checked="${i === av}" data-i="${i}">${a}</button>`).join('')}</div>
+        <button class="mj-go" id="bJoin"><span>เข้าห้องเลย</span><i>🚀</i></button>
+      </div>
     </form>`;
-  $$('.avs button').forEach((b) => b.addEventListener('click', () => { $$('.avs button').forEach((x) => x.setAttribute('aria-checked', x === b)); }));
-  $('#iPin').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); if (e.target.value.length === 4 && !$('#iName').value) $('#iName').focus(); });
+  const boxes = $$('.pd'), sync = () => { $('#iPin').value = boxes.map((x) => x.value).join(''); boxes.forEach((x) => x.classList.toggle('on', !!x.value)); };
+  boxes.forEach((bx, i) => {
+    bx.addEventListener('input', () => {
+      const d = bx.value.replace(/\D/g, '');
+      if (d.length > 1) { d.slice(0, 4 - i).split('').forEach((c, k) => (boxes[i + k].value = c)); }
+      else bx.value = d;
+      sync();
+      const nx = boxes.find((x) => !x.value); if (bx.value) (nx || $('#iName')).focus();
+    });
+    bx.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !bx.value && i > 0) { boxes[i - 1].value = ''; boxes[i - 1].focus(); sync(); } });
+    bx.addEventListener('focus', () => bx.select());
+  });
+  sync();
+  $$('.avs button').forEach((b) => b.addEventListener('click', () => { $$('.avs button').forEach((x) => x.setAttribute('aria-checked', x === b)); if (navigator.vibrate) navigator.vibrate(10); }));
   $('#fJoin').addEventListener('submit', onJoin);
   if (err) toast(err);
+  if (!pinQ) setTimeout(() => boxes[0].focus(), 300);
 }
 
 async function onJoin(e) {
@@ -44,7 +60,7 @@ async function onJoin(e) {
   const av = Number($('.avs [aria-checked="true"]').dataset.i);
   if (!/^\d{4}$/.test(pin)) return toast('รหัสห้องต้องเป็นตัวเลข 4 หลัก');
   if (!name) return toast('ใส่ชื่อเล่นก่อนนะ');
-  const btn = $('#bJoin'); btn.disabled = true; btn.textContent = 'กำลังเข้าห้อง…';
+  const btn = $('#bJoin'); btn.disabled = true; btn.querySelector('span').textContent = 'กำลังเข้าห้อง…';
   try {
     const pid = me && me.pin === pin ? me.pid : uid();
     const r = await call('join', { pin, pid, name, av });
@@ -52,7 +68,7 @@ async function onJoin(e) {
     history.replaceState(null, '', location.pathname + '?pin=' + pin);
     startPoll();
   } catch (err) {
-    toast(err.message); btn.disabled = false; btn.textContent = 'เข้าห้องเลย 🚀';
+    toast(err.message); btn.disabled = false; btn.querySelector('span').textContent = 'เข้าห้องเลย';
   }
 }
 

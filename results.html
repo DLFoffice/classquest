@@ -11,24 +11,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/cq.css">
   <link rel="stylesheet" href="assets/css/fx.css">
+  <link rel="stylesheet" href="assets/css/editor.css">
+  <link rel="stylesheet" href="assets/css/modern.css">
   <script src="assets/js/config.js"></script>
   <script src="assets/js/engine.js"></script>
 </head>
 <body>
-  <form class="card login" id="login" hidden>
-    <div class="hero-mascot" id="lgMascot" style="width:90px;margin:0 auto"></div>
-    <h2 style="margin:0">สรุปผลการตอบคำถาม</h2>
-    <input class="input" id="iKey" type="password" placeholder="รหัสครู (HOST_KEY)" autocomplete="current-password" required>
-    <button class="btn go">เข้าดูผล</button>
+  <form class="mj rp-login" id="login" hidden>
+    <div class="mj-hero"><div class="mj-m" id="lgMascot"></div><div><small>ห้องเรียนผจญภัย</small><h1>สรุปผล<br>การตอบคำถาม</h1></div></div>
+    <div class="mj-body">
+      <label class="mj-lbl" for="iKey">รหัสครู (HOST_KEY)</label>
+      <div class="mj-in"><span>🔑</span><input id="iKey" type="password" autocomplete="current-password" required></div>
+      <button class="mj-go"><span>เข้าดูผล</span><i>📊</i></button>
+    </div>
   </form>
   <div class="rp" id="rp" hidden>
-    <header class="rp-head">
+    <header class="rp-bar noprint">
       <div class="brand"><span class="logo">📊</span>สรุปผลการตอบคำถาม</div>
-      <div class="ctl noprint">
-        <select id="selRoom"></select>
-        <button class="btn sm" id="bReload">↻ รีเฟรช</button>
-        <button class="btn sm" id="bCsv">⬇ ไฟล์ CSV</button>
-        <button class="btn sm sun" id="bPrint">🖨 พิมพ์ / PDF</button>
+      <div class="rp-ctl">
+        <label class="rp-sel"><span>ห้อง</span><select id="selRoom"></select></label>
+        <button class="ed-ghost" id="bReload" title="ดึงข้อมูลล่าสุด">↻ รีเฟรช</button>
+        <button class="ed-ghost" id="bCsv">⬇ CSV</button>
+        <button class="rp-print" id="bPrint">🖨 พิมพ์ / PDF</button>
       </div>
     </header>
     <div id="out"></div>
