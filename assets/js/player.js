@@ -1,7 +1,7 @@
 // จอนักเรียน: เข้าห้อง → รอ → ตอบ → ดูผล → อันดับสุดท้าย
 import { call, DEMO } from './api.js';
-import { $, $$, esc, shape, AVATARS, avatar, MASCOT, confetti, toast, uid, sleep } from './ui.js';
-import { backdrop, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, REDUCED } from './fx.js';
+import { $, $$, esc, shape, AVATARS, avatar, MASCOT, mascotFor, confetti, toast, uid, sleep } from './ui.js';
+import { backdrop, blizzard, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, REDUCED } from './fx.js';
 
 const view = $('#view');
 const CFG = window.CQ_CONFIG || {};
@@ -175,6 +175,7 @@ function vResult(s, prev) {
   countUp($('#gain'), fresh ? 0 : r.gained, r.gained, 900);
   countUp($('#meScore'), fresh ? prevScore : s.score, s.score, 1100);
   if (r.ok && fresh) { confetti(80); setTimeout(() => sparkle($('.res'), 12), 300); }
+  if (!r.ok && fresh && s.theme === 'snow') setTimeout(() => blizzard(1200), 300);
   if (fresh) { prevRank = s.rank; prevScore = s.score; }
 }
 
@@ -187,8 +188,8 @@ function vEnd(s) {
     <div class="card rankcard" style="width:100%"><div class="rk">${s.rank}</div><div style="text-align:left">
       <b style="font-size:20px">อันดับที่ ${s.rank} จาก ${s.players} คน</b>
       <small>คะแนน ${s.score.toLocaleString()} · ตอบถูก ${s.correct}/${s.total} ข้อ</small></div></div>
-    <div class="hero-mascot">${MASCOT}</div>
-    <p class="muted">ขอบคุณที่ร่วมผจญภัยกันนะ ✨</p>
+    <div class="hero-mascot">${mascotFor(s.theme)}</div>
+    <p class="muted">${s.theme === 'snow' ? 'จ่าฝูงจิ้งจอกขอบใจนักสำรวจทุกคน ❄️' : 'ขอบคุณที่ร่วมผจญภัยกันนะ ✨'}</p>
     <button class="btn sun" id="bAgain">เข้าห้องใหม่</button></div>`;
   if (s.rank <= 3) { confetti(160); fireworks(4000); }
   $('#bAgain').onclick = () => { me = { ...me, pid: '', pin: '' }; SS.set('me', me); lastKey = ''; history.replaceState(null, '', location.pathname); showJoin(); };

@@ -104,3 +104,30 @@ export function uid() {
   const a = new Uint8Array(9); crypto.getRandomValues(a);
   return [...a].map((x) => 'abcdefghijkmnpqrstuvwxyz23456789'[x % 32]).join('') + Date.now().toString(36).slice(-3);
 }
+
+// จ่าฝูงจิ้งจอกอาร์กติก (ฉากหิมะ)
+export const FOX = `<svg class="mascot fox" viewBox="0 0 140 150" aria-hidden="true">
+  <g class="m-body">
+    <path class="f-tail" d="M90 132 C128 128 140 92 122 64 C120 88 106 104 86 112 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M120 70 C126 84 124 100 116 112 C120 96 120 84 116 74 Z" fill="#DCE6F2"/>
+    <path d="M40 144 C34 112 44 92 70 88 C96 92 106 112 100 144 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M58 102 q12 12 24 0 q-3 20 -12 24 q-9 -4 -12 -24z" fill="#EEF4FB"/>
+    <ellipse cx="56" cy="143" rx="11" ry="6" fill="#fff" stroke="#22223B" stroke-width="3.5"/>
+    <ellipse cx="84" cy="143" rx="11" ry="6" fill="#fff" stroke="#22223B" stroke-width="3.5"/>
+    <path d="M45 46 L38 10 L66 36 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M47 39 L43 20 L59 35 Z" fill="#9FB4CC"/>
+    <path d="M95 46 L102 10 L74 36 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M93 39 L97 20 L81 35 Z" fill="#9FB4CC"/>
+    <path d="M38 60 C36 34 104 34 102 60 C102 70 108 74 100 78 C92 90 80 94 70 94 C60 94 48 90 40 78 C32 74 38 70 38 60 Z" fill="#fff" stroke="#22223B" stroke-width="4" stroke-linejoin="round"/>
+    <g class="m-eyes"><ellipse cx="56" cy="60" rx="5" ry="6.5" fill="#22223B"/><ellipse cx="84" cy="60" rx="5" ry="6.5" fill="#22223B"/>
+      <circle cx="58" cy="58" r="1.8" fill="#fff"/><circle cx="86" cy="58" r="1.8" fill="#fff"/></g>
+    <path d="M54 50 l8 3 M86 50 l-8 3" stroke="#22223B" stroke-width="3" stroke-linecap="round"/>
+    <path d="M60 72 q10 -7 20 0 q-3 10 -10 11 q-7 -1 -10 -11z" fill="#F1F5FB"/>
+    <ellipse cx="70" cy="72" rx="5" ry="3.6" fill="#22223B"/>
+    <path class="m-mouth" d="M63 80 q7 6 7 0 q0 6 7 0" fill="none" stroke="#22223B" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="47" cy="72" r="4.5" fill="#FF9FB2" opacity=".7"/><circle cx="93" cy="72" r="4.5" fill="#FF9FB2" opacity=".7"/>
+    <path d="M46 90 q24 13 48 0 l-2 10 q-22 11 -44 0 z" fill="#4D8DFF" stroke="#22223B" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M86 98 l9 22 l-10 -3 z" fill="#4D8DFF" stroke="#22223B" stroke-width="3" stroke-linejoin="round"/>
+    <g transform="translate(70 99)" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M0 -6 V6 M-5 -3 L5 3 M5 -3 L-5 3"/></g>
+  </g></svg>`;
+export const mascotFor = (theme) => (theme === 'snow' ? FOX : MASCOT);

@@ -8,9 +8,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // ===================================================== ฉากตามเนื้อหา
 export const THEMES = {
   auto: 'อัตโนมัติ (ตามชื่อกิจกรรม)',
-  space: '🪐 อวกาศ', nature: '🌿 ธรรมชาติ', ocean: '🐠 ใต้ทะเล', lab: '🧪 ห้องทดลอง', math: '🔢 คณิตคิดสนุก', class: '✏️ ห้องเรียน',
+  snow: '❄️ ด่านหิมะ', space: '🪐 อวกาศ', nature: '🌿 ธรรมชาติ', ocean: '🐠 ใต้ทะเล', lab: '🧪 ห้องทดลอง', math: '🔢 คณิตคิดสนุก', class: '✏️ ห้องเรียน',
 };
 const KEYWORDS = [
+  ['snow', /หิมะ|น้ำแข็ง|จิ้งจอก|ขั้วโลก|อาร์กติก|snow|arctic|fox/i],
   ['space', /ดาว|อวกาศ|สุริยะ|จันทร์|ดวงอาทิตย์|จักรวาล|กาแล็กซี|space|planet|solar/i],
   ['ocean', /ทะเล|มหาสมุทร|ปลา|น้ำ|ฝน|วัฏจักร|แม่น้ำ|ocean|sea|water/i],
   ['nature', /พืช|ต้นไม้|ใบไม้|ดอกไม้|สัตว์|ธรรมชาติ|สิ่งแวดล้อม|แมลง|ป่า|ระบบนิเวศ|plant|animal|nature/i],
@@ -42,6 +43,7 @@ export function backdrop(theme) {
   if (BD) { cancelAnimationFrame(BD.raf); BD.el.remove(); }
   document.body.classList.remove(...[...document.body.classList].filter((c) => c.startsWith('th-')));
   document.body.classList.add('th-' + theme);
+  if (theme === 'space' || theme === 'snow') document.body.classList.add('th-dark');
   const el = document.createElement('div'); el.className = 'bd'; el.setAttribute('aria-hidden', 'true');
   el.innerHTML = STATIC[theme] || '';
   const cv = document.createElement('canvas'); el.appendChild(cv);
@@ -55,7 +57,9 @@ export function backdrop(theme) {
   const k = MOBILE ? 0.5 : 1;
   let parts = [], extra = [], t0 = performance.now();
 
-  if (theme === 'space') {
+  if (theme === 'snow') {
+    parts = Array.from({ length: (190 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), z: rnd(0.3, 1), p: rnd(0, 6.3) }));
+  } else if (theme === 'space') {
     parts = Array.from({ length: (150 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.4, 1.9), p: rnd(0, 6.3), s: rnd(0.6, 2.2) }));
   } else if (theme === 'ocean') {
     parts = Array.from({ length: (34 * k) | 0 }, () => ({ x: rnd(0, 1), y: rnd(0, 1.2), r: rnd(3, 13), v: rnd(0.02, 0.07), p: rnd(0, 6) }));
@@ -72,7 +76,15 @@ export function backdrop(theme) {
   const frame = (now) => {
     const t = (now - t0) / 1000, dt = 1 / 60;
     ctx.clearRect(0, 0, W, H);
-    if (theme === 'space') {
+    if (theme === 'snow') {
+      const wind = (BD.wind || 0) + Math.sin(t * 0.3) * 0.25;
+      ctx.fillStyle = '#fff';
+      parts.forEach((f) => {
+        f.y += (0.0009 + f.z * 0.0022) * (1 + (BD.wind || 0) * 3); f.x += (wind * 0.0012 + Math.sin(t + f.p) * 0.0004) * f.z;
+        if (f.y > 1.02) { f.y = -0.02; f.x = rnd(-0.1, 1.1); } if (f.x > 1.05) f.x = -0.05; if (f.x < -0.05) f.x = 1.05;
+        ctx.globalAlpha = 0.35 + f.z * 0.6; ctx.beginPath(); ctx.arc(f.x * W, f.y * H, 0.8 + f.z * 2.8, 0, 7); ctx.fill();
+      });
+    } else if (theme === 'space') {
       parts.forEach((s) => { const a = 0.35 + 0.65 * Math.abs(Math.sin(t * s.s + s.p)); ctx.globalAlpha = a; ctx.fillStyle = s.r > 1.5 ? '#FFE9A8' : '#fff';
         ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 7); ctx.fill(); });
       if (now - t0 > nextShoot && !shoot) shoot = { x: rnd(0.1, 0.9) * W, y: rnd(0, 0.4) * H, l: 0 };
@@ -116,7 +128,19 @@ export function backdrop(theme) {
   BD.raf = requestAnimationFrame(frame);
 }
 
+const pines = (n, h, col, seed) => { let d = ''; for (let i = 0; i <= n; i++) { const x = (i / n) * 1440 + ((i * seed) % 37) - 18, hh = h * (0.7 + ((i * seed * 7) % 10) / 22);
+  d += `M${x - hh * 0.38} 200 L${x} ${200 - hh} L${x + hh * 0.38} 200 Z M${x - hh * 0.3} ${200 - hh * 0.45} L${x} ${200 - hh * 1.02} L${x + hh * 0.3} ${200 - hh * 0.45} Z `; }
+  return `<path d="${d}" fill="${col}"/>`; };
 const STATIC = {
+  snow: `<div class="aurora"><i></i><i></i><i></i></div><div class="smoon"></div>
+    <svg class="mtn" viewBox="0 0 1440 300" preserveAspectRatio="none"><path d="M0 300 L0 190 L140 90 L230 150 L360 40 L470 140 L560 100 L700 20 L820 130 L930 70 L1060 160 L1180 60 L1300 140 L1440 90 L1440 300Z" fill="#2E5583"/>
+      <path d="M360 40 L320 78 L345 72 L362 86 L380 70 L402 80 Z M700 20 L660 58 L688 52 L705 66 L722 50 L742 60 Z M1180 60 L1145 92 L1168 88 L1184 98 L1200 86 L1218 92 Z" fill="#EAF4FF"/></svg>
+    <svg class="pine p1" viewBox="0 0 1440 200" preserveAspectRatio="none">${pines(26, 120, '#1F3F66', 7)}</svg>
+    <svg class="pine p2" viewBox="0 0 1440 200" preserveAspectRatio="none">${pines(18, 170, '#16304F', 13)}</svg>
+    <div class="ground"><div class="prints"></div></div>
+    <svg class="runfox" viewBox="0 0 120 60"><g fill="#F4F8FF" stroke="#9FB4CC" stroke-width="2" stroke-linejoin="round">
+      <path d="M8 30 C20 18 34 22 44 26 C58 18 78 20 88 26 L100 16 L102 28 C108 30 112 34 110 38 C104 40 96 38 90 40 C84 48 72 50 62 46 L54 56 L50 46 C40 46 32 44 26 40 L16 50 L18 38 C12 38 6 36 8 30Z"/></g>
+      <circle cx="101" cy="31" r="1.8" fill="#22223B"/></svg>`,
   space: `<div class="neb n1"></div><div class="neb n2"></div>
     <div class="solar"><div class="sun"></div>
       <div class="orbit o1"><i style="--pc:#C9B8A6;--ps:12px"></i></div><div class="orbit o2"><i style="--pc:#F2C14E;--ps:18px"></i></div>
@@ -135,6 +159,27 @@ const STATIC = {
   math: `<div class="grid"></div>`,
   class: ``,
 };
+
+// ===================================================== พายุหิมะ (ตอนหมดเวลา / ตอบผิด)
+export function blizzard(ms = 1800) {
+  if (REDUCED) return;
+  if (BD) { BD.wind = 4; setTimeout(() => { if (BD) BD.wind = 0; }, ms); }
+  const cv = document.createElement('canvas'); cv.className = 'confetti blz'; document.body.appendChild(cv);
+  const ctx = cv.getContext('2d'), W = (cv.width = innerWidth), H = (cv.height = innerHeight);
+  const fl = Array.from({ length: MOBILE ? 160 : 360 }, () => ({ x: rnd(-0.6, 1), y: rnd(-0.2, 1), v: rnd(0.012, 0.03), r: rnd(1, 3.6) }));
+  const t0 = performance.now();
+  const f = (now) => {
+    const p = (now - t0) / ms; ctx.clearRect(0, 0, W, H);
+    const a = p < 0.2 ? p / 0.2 : p > 0.75 ? Math.max(0, (1 - p) / 0.25) : 1;
+    const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, `rgba(235,245,255,${0.55 * a})`); g.addColorStop(1, `rgba(235,245,255,${0.15 * a})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = `rgba(255,255,255,${0.9 * a})`; ctx.lineCap = 'round';
+    fl.forEach((s) => { s.x += s.v * 1.6; s.y += s.v * 0.5; if (s.x > 1.05) { s.x = rnd(-0.3, -0.05); s.y = rnd(-0.1, 1); }
+      ctx.lineWidth = s.r; ctx.beginPath(); ctx.moveTo(s.x * W, s.y * H); ctx.lineTo(s.x * W - 26 * s.r, s.y * H - 8 * s.r); ctx.stroke(); });
+    if (p < 1) requestAnimationFrame(f); else cv.remove();
+  };
+  requestAnimationFrame(f);
+}
 
 // ===================================================== ทรานซิชันแถบสีกวาด
 let wiping = Promise.resolve();

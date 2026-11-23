@@ -1,8 +1,9 @@
 // จอครู: ตั้งค่าข้อคำถาม → ห้องรอ (PIN + QR) → คำถาม → เฉลย → อันดับ → โพเดียม
 import { call, DEMO } from './api.js';
-import { $, $$, esc, shape, avatar, MASCOT, confetti, toast, sound, music, sleep } from './ui.js';
-import { SAMPLE } from './sample.js';
-import { THEMES, themeFor, backdrop, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, peek, flipRows, REDUCED } from './fx.js';
+import { $, $$, esc, shape, avatar, MASCOT, mascotFor, confetti, toast, sound, music, sleep } from './ui.js';
+import { SAMPLE, SAMPLES, SOLAR } from './sample.js';
+import { parsePunnett, punnettHTML } from './punnett.js';
+import { THEMES, themeFor, backdrop, blizzard, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, peek, flipRows, REDUCED } from './fx.js';
 
 const view = $('#view');
 const CFG = window.CQ_CONFIG || {};
@@ -14,6 +15,10 @@ const SSset = (k, v) => { try { v ? sessionStorage.setItem('cqh:' + k, v) : sess
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 let SET = LSget('set', null) || clone(SAMPLE);
+// อัปเดตชุดตัวอย่างเดิม (ระบบสุริยะที่ยังไม่ได้แก้) เป็นชุดพันธุกรรม
+if (!LSget('v4', false)) { if (SET.title === SOLAR.title && !SET.story) SET = clone(SAMPLE); LSset('v4', true); LSset('set', SET); }
+const M = () => mascotFor((G && G.theme) || themeFor(SET.theme, SET.title));
+const isSnow = () => ((G && G.theme) || '') === 'snow';
 let KEY = SSget('key');
 let PIN = SSget('pin');
 let G = null, lastKey = '', pollT = null, timerT = null, deadline = 0, busy = false, revealing = false;
@@ -32,8 +37,8 @@ const ICON = {
   dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none"/></svg>',
   del: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none"/></svg>',
 };
-const THEME_LABEL = { auto: 'อัตโนมัติตามชื่อกิจกรรม', space: 'อวกาศ', nature: 'ธรรมชาติ', ocean: 'ใต้ทะเล', lab: 'ห้องทดลอง', math: 'คณิตคิดสนุก', class: 'ห้องเรียน' };
-const THEME_ART = { auto: '✨', space: '🪐', nature: '🌿', ocean: '🐠', lab: '🧪', math: '🔢', class: '✏️' };
+const THEME_LABEL = { auto: 'อัตโนมัติตามชื่อกิจกรรม', snow: 'ด่านหิมะ', space: 'อวกาศ', nature: 'ธรรมชาติ', ocean: 'ใต้ทะเล', lab: 'ห้องทดลอง', math: 'คณิตคิดสนุก', class: 'ห้องเรียน' };
+const THEME_ART = { auto: '✨', snow: '❄️', space: '🪐', nature: '🌿', ocean: '🐠', lab: '🧪', math: '🔢', class: '✏️' };
 const QUICK_T = [10, 20, 30, 45];
 
 function showSetup() {
@@ -42,7 +47,7 @@ function showSetup() {
   view.innerHTML = `
   <div class="setup ed">
     <aside class="ed-side">
-      <div class="ed-hero"><div class="ed-hero-m">${MASCOT}</div>
+      <div class="ed-hero"><div class="ed-hero-m" id="heroM">${M()}</div>
         <div><small>ClassQuest</small><h1>เตรียมภารกิจ<br>ของห้องเรียน</h1></div></div>
       <div class="ed-body">
         <label class="ed-lbl" for="iTitle">ชื่อกิจกรรม</label>
@@ -50,12 +55,15 @@ function showSetup() {
         <p class="ed-lbl">ฉากและเอฟเฟกต์</p>
         <div class="themes-pick">${Object.entries(THEMES).map(([k, v]) => `<button type="button" class="tp ${cur === k ? 'on' : ''}" data-theme="${k}">
           <span class="tp-art tp-${k}">${THEME_ART[k]}</span><span>${THEME_LABEL[k]}${k === 'auto' ? `<small id="autoTh"></small>` : ''}</span></button>`).join('')}</div>
+        <label class="ed-lbl" for="iStory">📜 เรื่องเล่าเปิดเกม <small>(บรรทัดละ 1 ฉาก · เว้นว่าง = ไม่เล่า)</small></label>
+        <textarea class="ed-in" id="iStory" rows="4" maxlength="1500" placeholder="เช่น ยินดีต้อนรับสู่ด่านหิมะ…">${esc(SET.story || '')}</textarea>
         <div class="stats"><div><b id="stQ">0</b><small>ข้อ</small></div><div><b id="stM">0</b><small>นาที (ประมาณ)</small></div><div><b id="stR">0</b><small>พร้อมเล่น</small></div></div>
         ${DEMO ? '' : `<label class="ed-lbl" for="iKey">รหัสครู (HOST_KEY)</label><input class="ed-in" id="iKey" type="password" value="${esc(KEY)}" autocomplete="current-password">`}
         <button class="ed-go" id="bCreate"><span>สร้างห้องเกม</span><i>🚀</i></button>
         <div class="ed-acts">
           <button class="ed-ghost" id="bImport">📋 วางจาก Excel</button>
-          <button class="ed-ghost" id="bSample">✨ ชุดตัวอย่าง</button>
+          <span class="smenu-wrap"><button class="ed-ghost" id="bSample">✨ ชุดตัวอย่าง ▾</button>
+            <span class="smenu" id="sMenu" hidden>${SAMPLES.map((x) => `<button type="button" data-sample="${x.key}">${esc(x.label)}</button>`).join('')}</span></span>
           <button class="ed-ghost danger" id="bClear">🗑 ล้างทั้งหมด</button>
         </div>
         <p class="ed-tip"><kbd>Space</kbd> ขั้นต่อไป · <kbd>F</kbd> เต็มจอ · <kbd>M</kbd> เสียง · ใช้รีโมตเลื่อนสไลด์ได้</p>
@@ -67,17 +75,24 @@ function showSetup() {
     </section>
   </div>`;
   renderList();
-  const preview = () => { const th = themeFor(SET.theme, SET.title); backdrop(th); const a = $('#autoTh'); if (a) a.textContent = 'ตอนนี้: ' + THEME_LABEL[themeFor('auto', SET.title)]; };
+  const preview = () => { const th = themeFor(SET.theme, SET.title); backdrop(th); $('#heroM').innerHTML = mascotFor(th); const a = $('#autoTh'); if (a) a.textContent = 'ตอนนี้: ' + THEME_LABEL[themeFor('auto', SET.title)]; };
   preview();
   $('#iTitle').addEventListener('input', (e) => { SET.title = e.target.value; save(); preview(); });
   $$('.tp').forEach((b) => b.addEventListener('click', () => { SET.theme = b.dataset.theme; save(); $$('.tp').forEach((x) => x.classList.toggle('on', x === b)); preview(); }));
   $('#bAdd').onclick = () => { SET.questions.push({ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }); save(); renderList(); const c = $('#qlist').lastElementChild; c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.querySelector('textarea').focus(); };
-  $('#bSample').onclick = () => { if (confirm('แทนที่ข้อคำถามทั้งหมดด้วยชุดตัวอย่าง?')) { SET = clone(SAMPLE); save(); showSetup(); } };
+  $('#iStory').addEventListener('input', (e) => { SET.story = e.target.value; save(); });
+  $('#bSample').onclick = (e) => { e.stopPropagation(); $('#sMenu').hidden = !$('#sMenu').hidden; };
+  $$('[data-sample]').forEach((b) => (b.onclick = () => {
+    const x = SAMPLES.find((y) => y.key === b.dataset.sample);
+    if (confirm(`แทนที่ข้อคำถามทั้งหมดด้วยชุด "${x.label}"?`)) { SET = clone(x.set); save(); showSetup(); }
+  }));
+  document.addEventListener('click', () => { const m = $('#sMenu'); if (m) m.hidden = true; }, { once: true });
   $('#bClear').onclick = () => { if (confirm('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
   $('#bImport').onclick = () => { $('#mImport').hidden = false; $('#taImport').focus(); };
   $('#bCreate').onclick = createRoom;
 }
 
+function pchk(g) { if (!g || !g.trim()) return ''; const P = parsePunnett(g); return P.error ? `⚠ ${esc(P.error)}` : `✓ ตาราง ${P.g2.length}×${P.g1.length}`; }
 const ready = (q) => q.q.trim() && q.c.filter((c) => c.trim()).length === q.c.length && q.a >= 0 && q.a < q.c.length;
 function updStats() {
   if (!$('#stQ')) return;
@@ -105,6 +120,8 @@ function renderList() {
         <button type="button" class="mark" data-correct="${j}" title="ตั้งเป็นคำตอบที่ถูก">${shape(j)}</button>
         <input type="text" data-k="c" data-j="${j}" value="${esc(c)}" placeholder="ตัวเลือกที่ ${j + 1}" maxlength="120" ${tf ? 'readonly' : ''}>
         <button type="button" class="okpill" data-correct="${j}">${q.a === j ? '✓ คำตอบที่ถูก' : 'ตั้งเป็นคำตอบ'}</button></div>`).join('')}</div>
+      <div class="genrow"><label class="pun-in"><span>🧬</span><input data-k="g" value="${esc(q.g || '')}" maxlength="60" placeholder="ตารางพันนิตต์ (ไม่บังคับ) เช่น  Bb x bb | ขนเทา | ขนขาว"><em class="pchk">${pchk(q.g)}</em></label>
+        <label class="gs" title="ถ้าไม่ติ๊ก ตารางจะขึ้นเฉพาะตอนเฉลย (กันเฉลยหลุด)"><input type="checkbox" data-k="gs" ${q.gs ? 'checked' : ''}>แสดงตอนถาม</label></div>
       <label class="xpl"><span>💡</span><input data-k="x" value="${esc(q.x || '')}" maxlength="200" placeholder="คำอธิบายหลังเฉลย (ไม่บังคับ) — ขึ้นทั้งจอครูและมือถือนักเรียน"></label>
     </article>`;
   }).join('');
@@ -120,10 +137,13 @@ document.addEventListener('input', (e) => {
   if (k === 'q') { q.q = e.target.value; autosize(e.target); }
   if (k === 'x') q.x = e.target.value;
   if (k === 'c') q.c[+e.target.dataset.j] = e.target.value;
+  if (k === 'g') { q.g = e.target.value; const c = e.target.parentNode.querySelector('.pchk'); c.innerHTML = pchk(q.g); c.classList.toggle('bad', /⚠/.test(c.textContent)); }
   save(); updStats();
 });
 document.addEventListener('change', (e) => {
-  const card = e.target.closest('.qed'); if (!card || e.target.dataset.k !== 't') return;
+  const card = e.target.closest('.qed'); if (!card) return;
+  if (e.target.dataset.k === 'gs') { SET.questions[+card.dataset.i].gs = e.target.checked; save(); return; }
+  if (e.target.dataset.k !== 't') return;
   SET.questions[+card.dataset.i].t = Number(e.target.value); save(); renderList();
 });
 document.addEventListener('click', (e) => {
@@ -177,7 +197,7 @@ async function createRoom() {
   const b = $('#bCreate'); b.disabled = true; b.textContent = 'กำลังสร้างห้อง…';
   try {
     if (!DEMO) { await call('check', { key: KEY }); SSset('key', KEY); }
-    const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), questions: SET.questions.map(({ q, c, a, t, x }) => ({ q, c, a, t, x })) });
+    const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), questions: SET.questions.map(({ q, c, a, t, x, g, gs }) => ({ q, c, a, t, x, g, gs })) });
     PIN = r.pin; SSset('pin', PIN); lastKey = ''; startPoll();
   } catch (e) { toast(e.message); b.disabled = false; b.textContent = 'สร้างห้องเกม 🚀'; }
 }
@@ -269,28 +289,80 @@ function updatePeople(g) {
     box.appendChild(el);
     if (!shown.has(p.pid)) { shown.add(p.pid); sound.pop(); }
   });
-  if (!g.players.length && !box.querySelector('.empty')) box.innerHTML = `<div class="empty"><div class="hero-mascot">${MASCOT}</div>รอเพื่อน ๆ เข้าห้อง…</div>`;
+  if (!g.players.length && !box.querySelector('.empty')) box.innerHTML = `<div class="empty"><div class="hero-mascot">${M()}</div>${isSnow() ? 'จ่าฝูงรอนักสำรวจอยู่…' : 'รอเพื่อน ๆ เข้าห้อง…'}</div>`;
   else if (g.players.length) box.querySelector('.empty')?.remove();
 }
 const seenRx = new Set();
 function showReacts(g) {
   (g.rx || []).forEach((r) => { if (seenRx.has(r.id)) return; seenRx.add(r.id); floatEmoji(r.e, esc(r.n)); });
 }
-function startGame() {
+let toldPin = '', starting = false;
+async function startGame() {
+  if (storyOpen || starting || !G || G.phase !== 'lobby') return;
   if (!G.players.length && !confirm('ยังไม่มีนักเรียนในห้อง เริ่มเลยไหม?')) return;
-  act('next');
+  starting = true;
+  try {
+    const lines = String(SET.story || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    if (lines.length && toldPin !== PIN) { toldPin = PIN; await story(lines); }
+    await act('next');
+  } finally { starting = false; }
+}
+
+// ===================================================== เรื่องเล่าเปิดเกม
+let storyOpen = false, storyNext = null;
+function story(lines) {
+  return new Promise((done) => {
+    storyOpen = true; music.stop();
+    const ov = document.createElement('div'); ov.className = 'story';
+    ov.innerHTML = `<div class="st-m">${M()}</div><div class="st-box"><div class="st-name">${isSnow() ? '🦊 จ่าฝูงจิ้งจอก' : '✏️ น้องดินสอ'}</div>
+      <p id="stText"></p><div class="st-foot"><span class="st-dots">${lines.map((_, i) => `<i data-i="${i}"></i>`).join('')}</span>
+      <button class="btn sm ghost" id="stSkip">ข้าม</button><button class="btn sm sun" id="stNext">ต่อไป ▶</button></div></div>`;
+    document.body.appendChild(ov);
+    const seg = (t) => (window.Intl && Intl.Segmenter ? [...new Intl.Segmenter('th', { granularity: 'grapheme' }).segment(t)].map((x) => x.segment) : [...t]);
+    let i = -1, typing = null, full = '';
+    const show = () => {
+      i++; if (i >= lines.length) return close();
+      $$('.st-dots i', ov).forEach((d, k) => d.classList.toggle('on', k <= i));
+      $('#stNext', ov).textContent = i === lines.length - 1 ? 'เริ่มภารกิจ! 🚀' : 'ต่อไป ▶';
+      const ch = seg(lines[i]); full = lines[i]; let k = 0; const el = $('#stText', ov); el.textContent = '';
+      ov.querySelector('.st-m').classList.remove('talk'); void ov.offsetWidth; ov.querySelector('.st-m').classList.add('talk');
+      clearInterval(typing);
+      typing = setInterval(() => { el.textContent += ch[k++] || ''; if (k % 3 === 0) sound.tone(isSnow() ? 1320 : 990, 0.03, 'sine', 0.04); if (k >= ch.length) { clearInterval(typing); typing = null; } }, 32);
+    };
+    const next = () => { if (typing) { clearInterval(typing); typing = null; $('#stText', ov).textContent = full; } else show(); };
+    const close = () => { coolUntil = performance.now() + 1800; storyOpen = false; storyNext = null; ov.classList.add('bye'); setTimeout(() => ov.remove(), 500); done(); };
+    storyNext = next;
+    $('#stNext', ov).onclick = next; $('#stSkip', ov).onclick = close;
+    if (isSnow()) blizzard(1400);
+    setTimeout(show, 500);
+  });
+}
+
+// ===================================================== เส้นทางข้ามด่าน
+const TRAIL = { snow: { team: '⛷️', gate: '🧊', open: '🏔️', camp: '⛺', guard: '🦊' }, def: { team: '🚀', gate: '🏁', open: '🏆', camp: '🏠', guard: '⭐' } };
+const needPass = (n) => Math.max(1, Math.ceil(n * 0.6));
+const passedOf = (g) => (g.trail || []).filter((r) => r != null && r >= 0.5).length;
+function trailHTML(g, pos) {
+  const T = isSnow() ? TRAIL.snow : TRAIL.def, need = needPass(g.total), at = Math.min(pos, need), open = pos >= need;
+  const L = (k) => (k / (need + 1)) * 100;
+  return `<div class="trail ${open ? 'open' : ''}"><div class="tr-line"><i style="width:${L(at)}%"></i></div>
+    <span class="tr-node camp" style="left:0%">${T.camp}</span>
+    ${Array.from({ length: need }, (_, k) => `<span class="tr-node ${k < at ? 'ok' : ''}" style="left:${L(k + 1)}%">${T.guard}</span>`).join('')}
+    <span class="tr-node gate" style="left:100%">${open ? T.open : T.gate}</span>
+    <span class="tr-me" style="left:${L(at)}%">${T.team}</span>
+    <span class="tr-cap">ผ่าน ${Math.min(pos, need)}/${need} ด่าน${open ? ' · ประตูเปิดแล้ว!' : ''}</span></div>`;
 }
 
 function vQuestion(g) {
   music.start(true);
   const q = g.q, two = q.c.length === 2;
+  const P = q.g ? parsePunnett(q.g) : null, pun = P && !P.error && q.gs ? punnettHTML(P) : '';
   deadline = (g._t || performance.now()) + g.left;
   const C = 2 * Math.PI * 54;
   view.innerHTML = `
-    <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>
-      <div class="progress">${Array.from({ length: g.total }, (_, i) => `<i class="${i < g.idx ? 'done' : i === g.idx ? 'now' : ''}"></i>`).join('')}</div></div>
-    <div class="qstage">
-      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>
+    <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>${trailHTML(g, passedOf(g))}</div>
+    <div class="qstage ${pun ? 'has-pun' : ''}">
+      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${pun}
       <div class="timer" id="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/>
         <circle class="tr" id="ring" cx="65" cy="65" r="54" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg><b id="tNum">${q.t}</b></div>
     </div>
@@ -309,7 +381,7 @@ function vQuestion(g) {
     if (left <= 0) {
       clearInterval(timerT); document.body.classList.remove('hurry');
       const st = document.createElement('div'); st.className = 'stamp'; st.textContent = 'หมดเวลา!'; document.body.appendChild(st);
-      sound.wrong(); setTimeout(() => st.remove(), 1400); setTimeout(doReveal, 1100);
+      sound.wrong(); if (isSnow()) blizzard(1600); setTimeout(() => st.remove(), 1400); setTimeout(doReveal, 1100);
     }
   }, 100);
   live(g);
@@ -324,10 +396,10 @@ function vReveal(g) {
   music.stop(); sound.reveal();
   const q = g.q, two = q.c.length === 2, max = Math.max(1, ...g.dist), total = g.players.length;
   const pctOk = total ? Math.round((g.dist[q.a] / total) * 100) : 0;
+  const P = q.g ? parsePunnett(q.g) : null, pun = P && !P.error ? punnettHTML(P, { filled: true }) : '';
   view.innerHTML = `
-    <div class="qtop"><span class="chip" style="font-size:18px">เฉลยข้อ ${g.idx + 1} / ${g.total}</span>
-      <div class="progress">${Array.from({ length: g.total }, (_, i) => `<i class="${i <= g.idx ? 'done' : ''}"></i>`).join('')}</div></div>
-    <div class="qstage"><div class="card qcard"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>
+    <div class="qtop"><span class="chip" style="font-size:18px">เฉลยข้อ ${g.idx + 1} / ${g.total}</span>${trailHTML({ ...g, trail: (g.trail || []).slice(0, g.idx) }, passedOf({ trail: (g.trail || []).slice(0, g.idx) }))}</div>
+    <div class="qstage ${pun ? 'has-pun' : ''}"><div class="card qcard"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>${pun}
       <div class="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/></svg><b style="font-size:34px;line-height:1.1;text-align:center">${pctOk}%<small style="display:block;font-size:15px;font-weight:400">ตอบถูก</small></b></div></div>
     <div class="hans revealed ${two ? 'two' : ''}">${q.c.map((c, i) => `<div class="ha o${i} ${i === q.a ? 'right' : ''}">${shape(i)}<span>${esc(c)}</span>
       <span class="cnt"><i style="width:0" data-w="${Math.round((g.dist[i] / max) * 120)}"></i><em data-n="${g.dist[i]}">0</em></span>${i === q.a ? '<span class="tick">✓</span>' : ''}</div>`).join('')}</div>
@@ -340,7 +412,11 @@ function vReveal(g) {
   $$('.cnt em').forEach((e) => countUp(e, 0, +e.dataset.n, 900));
   setTimeout(() => sparkle($('.ha.right'), 16), 500);
   const pc = total ? g.dist[q.a] / total : 0;
-  setTimeout(() => peek(MASCOT, !total ? 'เฉลยแล้ว!' : pc >= 0.8 ? 'ว้าว! เก่งกันทั้งห้องเลย 🎉' : pc >= 0.5 ? 'เยี่ยม! ถูกกันเกินครึ่ง 👍' : pc > 0 ? 'ข้อนี้ยากนะ ฟังเฉลยกันหน่อย 🤔' : 'โอ๊ะ! ไม่มีใครถูกเลย 😮', pc >= 0.5 ? 'happy' : 'sad'), 700);
+  const lines = isSnow()
+    ? [!total ? 'เฉลยแล้ว!' : pc >= 0.8 ? 'ฮึ่ม… พวกเจ้ารู้ความลับขนของพวกเราแล้วสินะ 🦊' : pc >= 0.5 ? 'ไม่เลว! ข้ายอมให้ผ่านด่านนี้' : pc > 0 ? 'ฮึ! ยังไม่เก่งพอ ฟังเฉลยให้ดีนะ ❄️' : 'ฮ่า ๆ! ไม่มีใครไขปริศนาข้าได้เลย 🌨️']
+    : [!total ? 'เฉลยแล้ว!' : pc >= 0.8 ? 'ว้าว! เก่งกันทั้งห้องเลย 🎉' : pc >= 0.5 ? 'เยี่ยม! ถูกกันเกินครึ่ง 👍' : pc > 0 ? 'ข้อนี้ยากนะ ฟังเฉลยกันหน่อย 🤔' : 'โอ๊ะ! ไม่มีใครถูกเลย 😮'];
+  setTimeout(() => peek(M(), lines[0], pc >= 0.5 ? 'happy' : 'sad', P ? 5200 : 3800), 700);
+  if (isSnow() && total && pc < 0.5) setTimeout(() => blizzard(1500), 400);
   if (pc >= 0.8 && total) setTimeout(() => confetti(90), 600);
   $('#bBoard').onclick = () => act('board');
 }
@@ -350,7 +426,12 @@ function vBoard(g) {
   const last = g.idx + 1 >= g.total, top = Math.max(1, ...g.board.map((b) => b.score));
   const prev = prevBoard; prevBoard = g.board.map((b) => ({ name: b.name, score: b.score }));
   const pIdx = (name) => { const k = prev.findIndex((p) => p.name === name); return k < 0 ? (prev.length ? g.board.length : null) : k; };
+  const before = passedOf({ trail: (g.trail || []).slice(0, g.idx) }), after = passedOf(g), need = needPass(g.total), r = (g.trail || [])[g.idx] || 0;
+  const msg = after >= need && before < need ? `${isSnow() ? '🧊 ประตูน้ำแข็งเปิดแล้ว!' : '🏁 ถึงเส้นชัยแล้ว!'} ทั้งห้องผ่านครบ ${need} ด่าน`
+    : r >= 0.5 ? `🎉 ทั้งห้องตอบถูก ${Math.round(r * 100)}% — ผ่านด่าน! ขบวนเดินหน้า`
+    : `${isSnow() ? '🌨️ พายุหิมะ!' : '😵 ไม่ผ่าน!'} ตอบถูกแค่ ${Math.round(r * 100)}% — ขบวนยังติดอยู่ที่เดิม`;
   view.innerHTML = `<div class="boardwrap">
+    <div class="trail-wrap rise">${trailHTML(g, before)}<p class="tr-msg ${r >= 0.5 ? 'ok' : 'bad'}">${msg}</p></div>
     <h1 class="rise">🏆 อันดับหลังข้อ ${g.idx + 1}</h1>
     ${g.board.length ? g.board.map((b, i) => { const pi = pIdx(b.name), up = pi != null && pi > i ? pi - i : 0;
       return `<div class="card brow flip ${i === 0 ? 'top1' : ''}"><span class="bar" style="width:0" data-w="${(b.score / top) * 100}"></span>
@@ -364,6 +445,8 @@ function vBoard(g) {
   $$('.brow .sc').forEach((e) => countUp(e, +e.dataset.from, +e.dataset.to, 1400));
   requestAnimationFrame(() => setTimeout(() => $$('.brow .bar').forEach((b) => (b.style.width = b.dataset.w + '%')), 600));
   if (!REDUCED) setTimeout(() => sound.tone(880, 0.15, 'triangle', 0.12), 1500);
+  if (after !== before) setTimeout(() => { const w = $('.trail-wrap'); if (w) { w.firstElementChild.outerHTML = trailHTML(g, after); $('.trail-wrap .trail').classList.add('moved'); sound.pop(); if (after >= need && before < need) { confetti(120); sound.fanfare(); } } }, 700);
+  else if (r < 0.5 && isSnow()) setTimeout(() => blizzard(1300), 500);
   $('#bNext').onclick = () => act('next');
 }
 
@@ -374,6 +457,7 @@ function vEnd(g) {
   const P1 = b[0] ? P(0, 'p1').replace('<div class="av">', '<div class="av"><span class="crown">👑</span>') : '';
   view.innerHTML = `<div class="boardwrap" style="max-width:1200px">
     <h1 class="rise">🎉 ภารกิจสำเร็จ! ${esc(g.title)}</h1>
+    ${(() => { const p = passedOf(g), n = needPass(g.total); return `<p class="gate-banner ${p >= n ? 'ok' : ''}">${p >= n ? (isSnow() ? '🧊✨ ประตูน้ำแข็งเปิดออกแล้ว!' : '🏆 ทั้งห้องพิชิตเส้นชัย!') : (isSnow() ? '❄️ ประตูน้ำแข็งยังปิดอยู่…' : '🏁 เกือบถึงเส้นชัยแล้ว')} · ทั้งห้องผ่าน ${Math.min(p, n)}/${n} ด่าน</p>`; })()}
     <div class="beam b1"></div><div class="beam b2"></div>
     <div class="drum">🥁 แล้วผู้ชนะก็คือ…</div>
     <div class="podium">${P1}${P(1, 'p2')}${P(2, 'p3')}</div>
@@ -384,18 +468,20 @@ function vEnd(g) {
   [0, 0.6].forEach((d, k) => setTimeout(() => sound.tone(k ? 523 : 392, 0.25, 'triangle', 0.15), d * 1000));
   for (let k = 0; k < 10; k++) setTimeout(() => sound.tick(k % 2), 1300 + k * 90);
   setTimeout(() => { sound.fanfare(); confetti(240); fireworks(7000); }, 2300);
-  setTimeout(() => peek(MASCOT, 'ปรบมือให้แชมป์หน่อย! 👏', 'happy', 4500), 3400);
+  setTimeout(() => peek(M(), isSnow() ? (passedOf(g) >= needPass(g.total) ? 'พวกเจ้าคือนักสำรวจตัวจริง! ข้ายอมรับ 🦊' : 'ครั้งหน้าข้าจะรอพวกเจ้าอีกนะ ❄️') : 'ปรบมือให้แชมป์หน่อย! 👏', 'happy', 4500), 3400);
   $('#bNew').onclick = () => { PIN = ''; G = null; lastKey = ''; shown = new Set(); prevBoard = []; showSetup(); };
 }
 
 // ===================================================== ปุ่มลัด
+let coolUntil = 0;
 function primary() {
-  if (!G || !PIN) return;
+  if (!G || !PIN || performance.now() < coolUntil) return;
+  coolUntil = performance.now() + 900;
   ({ lobby: startGame, question: doReveal, reveal: () => act('board'), board: () => act('next') })[G.phase]?.();
 }
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input,textarea,select') || !$('#mImport').hidden) return;
-  if ([' ', 'Enter', 'ArrowRight', 'PageDown'].includes(e.key)) { e.preventDefault(); primary(); }
+  if ([' ', 'Enter', 'ArrowRight', 'PageDown'].includes(e.key)) { e.preventDefault(); if (storyOpen) storyNext && storyNext(); else primary(); }
   if (e.key === 'f' || e.key === 'F') toggleFull();
   if (e.key === 'm' || e.key === 'M') toggleSound();
 });

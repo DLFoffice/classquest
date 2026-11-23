@@ -28,7 +28,7 @@ var CQ = (function () {
       if (c.length < 2) throw err('ข้อ ' + (i + 1) + ' ต้องมีตัวเลือกอย่างน้อย 2 ตัว');
       if (!(a >= 0 && a < c.length)) throw err('ข้อ ' + (i + 1) + ' ยังไม่ได้เลือกคำตอบที่ถูก');
       var t = Math.max(5, Math.min(120, Number(q.t) || 20));
-      return { q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200) };
+      return { q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200), g: clip(q.g, 60), gs: !!q.gs };
     });
   }
 
@@ -94,6 +94,7 @@ var CQ = (function () {
           a ? Math.round(a.ms / 100) / 10 : '', g, p.s]);
       });
       r.phase = 'reveal'; r.last = { idx: r.idx, dist: dist, res: res, n: Object.keys(got).length };
+      r.trail = r.trail || []; r.trail[r.idx] = r.order.length ? Math.round((dist[q.a] / r.order.length) * 1000) / 1000 : 0;
       r.qEnd = Math.min(r.qEnd, store.now());
       save(store, r);
       if (rows.length) store.append('answers', rows);
@@ -140,6 +141,7 @@ var CQ = (function () {
     var out = { pin: r.pin, title: r.title, theme: r.theme || '', phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver,
       players: r.order.map(function (pid) { var p = r.players[pid]; return { pid: pid, name: p.n, av: p.av }; }) };
     if (r.idx >= 0) out.q = r.qs[r.idx];
+    out.trail = r.trail || [];
     if (r.phase === 'lobby') out.rx = (store.get(rxKey(r.pin)) || []).filter(function (x) { return x.t > store.now() - 6000; });
     if (r.phase === 'question') {
       out.left = Math.max(0, r.qEnd - store.now());
