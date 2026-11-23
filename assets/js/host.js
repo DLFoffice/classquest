@@ -67,7 +67,9 @@ function showSetup() {
         <div class="modes">
           <button type="button" class="mode ${SET.mode === 'self' ? '' : 'on'}" data-mode="live"><b>🎮 เล่นสด</b><small>ครูคุมจังหวะบนจอ ทุกคนตอบพร้อมกัน</small></button>
           <button type="button" class="mode ${SET.mode === 'self' ? 'on' : ''}" data-mode="self"><b>🏃 นักเรียนเล่นเอง</b><small>ทำตามจังหวะตัวเอง ครูดูความคืบหน้า</small></button>
+          <button type="button" class="mode wide ${SET.mode === 'station' ? 'on' : ''}" data-mode="station"><b>🏕️ แบบฐาน</b><small>แบ่งกลุ่มไปคนละฐาน · QR แยกแต่ละฐาน · ทำเฉพาะโจทย์ของฐานนั้น</small></button>
         </div>
+        <label class="gs rot" id="rotWrap" ${SET.mode === 'station' ? '' : 'hidden'}><input type="checkbox" id="cRot" ${SET.rotate === false ? '' : 'checked'}>ทำครบฐานแล้วให้เลือกฐานอื่นต่อได้ (หมุนฐาน)</label>
         <button class="ed-go" id="bCreate"><span>สร้างห้องเกม</span><i>🚀</i></button>
         <div class="ed-acts">
           <button class="ed-ghost" id="bImport">📋 วางจาก Excel</button>
@@ -100,7 +102,11 @@ function showSetup() {
   $('#bClear').onclick = () => { if (confirm('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
   $('#bImport').onclick = () => { $('#mImport').hidden = false; $('#taImport').focus(); };
   $('#bCreate').onclick = createRoom;
-  $$('.mode').forEach((b) => (b.onclick = () => { SET.mode = b.dataset.mode; save(); $$('.mode').forEach((x) => x.classList.toggle('on', x === b)); }));
+  $$('.mode').forEach((b) => (b.onclick = () => {
+    if (b.dataset.mode === 'station' && !(SET.stages || []).length) { SET.stages = clone(STAGES4); SET.questions.forEach((q) => { if (!(q.st >= 0)) q.st = 0; }); renderStages(); renderList(); toast('เปิดระบบ 4 ด่านให้แล้ว · เลือกฐานของแต่ละข้อที่ไอคอนบนการ์ด'); }
+    SET.mode = b.dataset.mode; save(); $$('.mode').forEach((x) => x.classList.toggle('on', x === b)); $('#rotWrap').hidden = SET.mode !== 'station';
+  }));
+  $('#cRot').onchange = (e) => { SET.rotate = e.target.checked; save(); };
 }
 
 function pchk(g) { if (!g || !g.trim()) return ''; const P = parsePunnett(g); return P.error ? `⚠ ${esc(P.error)}` : `✓ ตาราง ${P.g2.length}×${P.g1.length}`; }
@@ -178,6 +184,9 @@ function renderList() {
         <div class="tools">${['up', 'down', 'dup', 'del'].map((a) => `<button type="button" data-act="${a}" title="${{ up: 'เลื่อนขึ้น', down: 'เลื่อนลง', dup: 'ทำซ้ำ', del: 'ลบ' }[a]}" class="${a}">${ICON[a]}</button>`).join('')}</div>
       </header>
       <textarea data-k="q" rows="1" maxlength="300" placeholder="พิมพ์คำถาม / คำสั่งที่นี่…">${esc(q.q)}</textarea>
+      ${q.img ? `<div class="imgrow has"><img src="${esc(q.img)}" alt="" data-zoomh="1"><div><b>🖼️ ภาพประกอบโจทย์</b><small>ขึ้นทั้งจอครูและมือถือนักเรียน</small>
+          <span><button type="button" class="ed-ghost" data-img="pick">เปลี่ยนภาพ</button><button type="button" class="ed-ghost danger" data-img="del">ลบภาพ</button></span></div></div>`
+        : `<div class="imgrow"><button type="button" class="imgadd" data-img="pick">🖼️ เพิ่มภาพประกอบ</button><button type="button" class="imglink" data-img="link">🔗 ใช้ลิงก์ภาพ</button></div>`}
       ${bodyFor(q, i)}
       <label class="xpl"><span>💡</span><input data-k="x" value="${esc(q.x || '')}" maxlength="200" placeholder="คำอธิบายหลังเฉลย (ไม่บังคับ) — ขึ้นทั้งจอครูและมือถือนักเรียน"></label>
     </article>`;
@@ -225,7 +234,12 @@ document.addEventListener('click', (e) => {
   const card = e.target.closest('.qed'); if (!card) return;
   const i = +card.dataset.i, L = SET.questions, q = L[i];
   const tb = e.target.closest('[data-type]'), tm = e.target.closest('[data-time]'), cr = e.target.closest('[data-correct]'), b = e.target.closest('[data-act]');
-  const sg = e.target.closest('[data-stage]'), pa = e.target.closest('[data-padd]'), pd = e.target.closest('[data-pdel]');
+  const sg = e.target.closest('[data-stage]'), pa = e.target.closest('[data-padd]'), pd = e.target.closest('[data-pdel]'), im = e.target.closest('[data-img]');
+  if (im) {
+    if (im.dataset.img === 'pick') return pickImage(i);
+    if (im.dataset.img === 'link') { const u = prompt('วางลิงก์ภาพ (ขึ้นต้นด้วย https://)'); if (!u) return; if (!/^https:\/\//.test(u.trim())) return toast('ลิงก์ต้องขึ้นต้นด้วย https://'); q.img = u.trim(); save(); renderList(); return; }
+    if (im.dataset.img === 'del') { if (!confirm('ลบภาพของข้อนี้?')) return; q.img = ''; save(); renderList(); return; }
+  }
   if (tb) setType(q, tb.dataset.type);
   else if (sg) q.st = Number(sg.dataset.stage);
   else if (pa) q.p.push({ l: '', r: '' });
@@ -243,6 +257,36 @@ document.addEventListener('click', (e) => {
   } else return;
   save(); renderList();
 });
+
+// ===================================================== ภาพประกอบโจทย์
+const filePick = document.createElement('input'); filePick.type = 'file'; filePick.accept = 'image/*'; filePick.hidden = true; document.body.appendChild(filePick);
+let pickFor = -1;
+function pickImage(i) { if (!DEMO && !($('#iKey') && $('#iKey').value.trim())) { $('#iKey') && $('#iKey').focus(); return toast('ใส่รหัสครู (HOST_KEY) ก่อนอัปโหลดภาพ'); } pickFor = i; filePick.value = ''; filePick.click(); }
+function shrink(file, max = 1280) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => { const k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+      c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.82)); };
+    im.onerror = () => rej(new Error('เปิดไฟล์ภาพไม่ได้')); im.src = url;
+  });
+}
+filePick.addEventListener('change', async () => {
+  const f = filePick.files[0], i = pickFor; if (!f || i < 0) return;
+  const card = $(`.qed[data-i="${i}"]`); card && card.classList.add('uploading');
+  try {
+    const data = await shrink(f, DEMO ? 960 : 1280);
+    if (DEMO) SET.questions[i].img = data;
+    else { KEY = $('#iKey').value.trim(); const r = await call('upload', { key: KEY, name: `q${i + 1}-${f.name}`, data }); SET.questions[i].img = r.url; SSset('key', KEY); }
+    save(); renderList(); toast('เพิ่มภาพแล้ว ✓');
+  } catch (e) { toast(e.message); card && card.classList.remove('uploading'); }
+});
+document.addEventListener('click', (e) => {
+  const z = e.target.closest('[data-zoomh]'); if (!z) return;
+  const ov = document.createElement('div'); ov.className = 'zoom'; ov.innerHTML = `<img src="${esc(z.getAttribute('src') || z.querySelector('img').src)}" alt=""><span>คลิกเพื่อปิด</span>`;
+  ov.onclick = () => ov.remove(); document.body.appendChild(ov);
+});
+const himg = (q) => (q.img ? `<figure class="himg" data-zoomh="1"><img src="${esc(q.img)}" alt="ภาพประกอบโจทย์"></figure>` : '');
 
 // วางจาก Excel
 function parseTSV(txt) {
@@ -265,7 +309,8 @@ $('#bImpCancel').onclick = closeImp;
 function payload() {
   const ST = SET.stages || [];
   return SET.questions.map((q, i) => {
-    const st = ST.length ? (q.st >= 0 && q.st < ST.length ? q.st : 0) : -1, base = { q: q.q, t: q.t, x: q.x, st };
+    const st = ST.length ? (q.st >= 0 && q.st < ST.length ? q.st : 0) : -1, base = { q: q.q, t: q.t, x: q.x, st, img: q.img || '' };
+    if (!DEMO && /^data:/.test(q.img || '')) throw new Error(`ข้อ ${i + 1} ภาพยังไม่ได้อัปโหลด ลองเลือกภาพใหม่อีกครั้ง`);
     if (q.type === 'fill') {
       const b = buildFill(q.g, q.hx);
       if (b.error) throw new Error(`ข้อ ${i + 1} ${b.error}`);
@@ -287,7 +332,7 @@ async function createRoom() {
   const b = $('#bCreate'); b.disabled = true; b.querySelector('span').textContent = 'กำลังสร้างห้อง…';
   try {
     if (!DEMO) { await call('check', { key: KEY }); SSset('key', KEY); }
-    const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), stages: SET.stages || [], mode: SET.mode === 'self' ? 'self' : 'live', questions: qs });
+    const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), stages: SET.stages || [], mode: ['self', 'station'].includes(SET.mode) ? SET.mode : 'live', rotate: SET.rotate !== false, questions: qs });
     PIN = r.pin; SSset('pin', PIN); lastKey = ''; startPoll();
   } catch (e) { toast(e.message); b.disabled = false; b.querySelector('span').textContent = 'สร้างห้องเกม'; }
 }
@@ -334,6 +379,7 @@ function live(g) {
 
 // ===================================================== แดชบอร์ดโหมดนักเรียนเล่นเอง
 function vSelf(g) {
+  if (g.mode === 'station') return vStationDash(g);
   music.start();
   const url = joinUrl(), link = url + '?pin=' + g.pin;
   view.innerHTML = `<div class="selfdash">
@@ -358,6 +404,7 @@ function vSelf(g) {
 }
 let selfSeen = new Set();
 function updateSelf(g) {
+  if (g.mode === 'station') return updateStation(g);
   const box = $('#sdList'); if (!box) return;
   const L = (g.self || []).slice().sort((a, b) => b.s - a.s || b.i - a.i), T = g.total, stq = g.stq || [], ST = g.stages || [];
   $('#kIn').textContent = L.length; $('#kGo').textContent = L.filter((x) => x.started && !x.done).length; $('#kDone').textContent = L.filter((x) => x.done).length;
@@ -370,6 +417,68 @@ function updateSelf(g) {
       <div class="sd-pg"><div class="sd-bar"><i style="width:${(x.i / T) * 100}%"></i></div><small>${x.done ? '✅ เสร็จแล้ว' : x.started ? `${ic} ข้อ ${x.i + 1}/${T}` : 'ยังไม่เริ่ม'}</small></div>
       <span class="sd-sc">${x.s.toLocaleString()}</span><span class="sd-c">ถูก ${x.c}</span></div>`; }).join('');
   L.forEach((x) => { if (!selfSeen.has(x.pid)) { selfSeen.add(x.pid); sound.pop(); } });
+}
+
+// ===================================================== แดชบอร์ดโหมดฐาน
+const stQs = (g, k) => (g.stq || []).filter((x) => x === k).length;
+function vStationDash(g) {
+  music.start();
+  const url = joinUrl(), ST = g.stages || [];
+  view.innerHTML = `<div class="stdash">
+    <div class="std-top">
+      <div class="card std-join"><div class="qr sm" id="qr"></div><div><small>เข้าเว็บ</small><b>${esc(url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</b>
+        <small>รหัสห้อง</small><div class="pin-mid">${esc(g.pin)}</div></div></div>
+      <div class="std-title"><small>🏕️ โหมดฐาน${g.rotate ? ' · หมุนฐานได้' : ' · ฐานเดียว'} · ${esc(g.title)}</small><h1>ความคืบหน้าแต่ละฐาน</h1>
+        <div class="sd-kpi kmini"><div><b id="kIn">0</b><small>เข้าห้อง</small></div><div><b id="kGo">0</b><small>กำลังทำ</small></div><div><b id="kWait">0</b><small>ยังไม่เลือกฐาน</small></div><div><b id="kAvg">–</b><small>ถูกเฉลี่ย</small></div></div></div>
+      <div class="std-btns"><button class="btn sun" id="bPrintQR">🖨️ พิมพ์ QR ทุกฐาน</button><button class="btn hot" id="bClose">🏁 ปิดห้องและประกาศผล</button></div>
+    </div>
+    <div class="std-cols">${ST.map((x, k) => stQs(g, k) ? `<section class="stcol st-${esc(x.th)}" data-k="${k}">
+      <header><span>${esc(x.ic)}</span><div><small>ฐานที่ ${k + 1} · ${stQs(g, k)} ข้อ</small><b>${esc(x.n)}</b></div></header>
+      <div class="stc-kpi"><span>กำลังทำ <b class="kg">0</b></span><span>ผ่านแล้ว <b class="kd">0</b></span><span>ถูกเฉลี่ย <b class="ka">–</b></span></div>
+      <div class="stc-list"></div><div class="stc-done"></div></section>` : '').join('')}</div>
+  </div>`;
+  drawQR(url + '?pin=' + g.pin);
+  $('#bPrintQR').onclick = () => printStationQR(g);
+  $('#bClose').onclick = async () => {
+    const going = (G.self || []).filter((x) => x.cur != null && x.stp[x.cur] && !x.stp[x.cur].done).length;
+    if (!confirm(going ? `ยังมีนักเรียนกำลังทำฐานอยู่ ${going} คน ปิดห้องเลยไหม? (คะแนนที่ทำไปแล้วจะถูกบันทึก)` : 'ปิดห้องและประกาศผล?')) return;
+    await act('end');
+  };
+  updateStation(g);
+}
+function updateStation(g) {
+  if (!$('.std-cols')) return;
+  const L = (g.self || []).slice().sort((a, b) => b.s - a.s);
+  const going = L.filter((x) => x.cur != null && !(x.stp[x.cur] || {}).done);
+  $('#kIn').textContent = L.length; $('#kGo').textContent = going.length; $('#kWait').textContent = L.filter((x) => x.cur == null).length;
+  const tot = L.reduce((a, x) => a + x.i, 0); $('#kAvg').textContent = tot ? Math.round((L.reduce((a, x) => a + x.c, 0) / tot) * 100) + '%' : '–';
+  $$('.stcol').forEach((col) => {
+    const k = String(col.dataset.k), n = stQs(g, +k);
+    const here = L.filter((x) => x.cur === k && !(x.stp[k] || {}).done), done = L.filter((x) => (x.stp[k] || {}).done);
+    const ans = L.reduce((a, x) => a + ((x.stp[k] || {}).i || 0), 0), cor = L.reduce((a, x) => a + ((x.stp[k] || {}).c || 0), 0);
+    col.querySelector('.kg').textContent = here.length; col.querySelector('.kd').textContent = done.length; col.querySelector('.ka').textContent = ans ? Math.round((cor / ans) * 100) + '%' : '–';
+    col.querySelector('.stc-list').innerHTML = here.length ? here.map((x) => { const P = x.stp[k] || { i: 0, s: 0 };
+      return `<div class="stp-row ${selfSeen.has(x.pid + k) ? '' : 'new'}"><span class="av">${avatar(x.av)}</span><div><b>${esc(x.name)}</b><small>${esc(x.full)}</small>
+        <div class="sd-bar"><i style="width:${(P.i / n) * 100}%"></i></div></div><em>${P.i}/${n}</em></div>`; }).join('') : '<p class="stc-empty">ยังไม่มีใครอยู่ที่ฐานนี้</p>';
+    col.querySelector('.stc-done').innerHTML = done.length ? `<small>✅ ผ่านแล้ว</small>${done.map((x) => `<span title="${esc(x.full)}">${avatar(x.av)} ${esc(x.name)} · ${(x.stp[k].c)}/${n}</span>`).join('')}` : '';
+    here.forEach((x) => { if (!selfSeen.has(x.pid + k)) { selfSeen.add(x.pid + k); sound.pop(); } });
+  });
+}
+function printStationQR(g) {
+  const url = joinUrl(), ST = g.stages || [];
+  const qrSvg = (link) => { if (!window.qrcode) return `<p style="word-break:break-all">${esc(link)}</p>`; const q = window.qrcode(0, 'M'); q.addData(link); q.make(); return q.createSvgTag({ cellSize: 8, margin: 0, scalable: true }); };
+  const cards = ST.map((x, k) => (stQs(g, k) ? `<div class="c"><div class="ic">${esc(x.ic)}</div><small>ฐานที่ ${k + 1}</small><h2>${esc(x.n)}</h2><p>${esc(x.d || '')}</p>
+    <div class="qr">${qrSvg(`${url}?pin=${g.pin}&st=${k + 1}`)}</div><div class="u">${esc(url.replace(/^https?:\/\//, ''))} · รหัสห้อง <b>${esc(g.pin)}</b></div></div>` : '')).join('');
+  const w = window.open('', '_blank');
+  if (!w) return toast('เบราว์เซอร์บล็อกหน้าต่างใหม่ — อนุญาตป๊อปอัปก่อน');
+  w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>QR ฐาน · ห้อง ${esc(g.pin)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600&display=swap" rel="stylesheet">
+    <style>body{margin:0;font-family:Mitr,sans-serif;background:#f4f4f8}.bar{padding:12px;text-align:center}.bar button{font:inherit;font-size:18px;padding:8px 20px;border-radius:12px;border:0;background:#7B61FF;color:#fff;cursor:pointer}
+    .g{display:grid;grid-template-columns:1fr 1fr;gap:10mm;padding:10mm;max-width:190mm;margin:0 auto}.c{background:#fff;border:3px solid #22223B;border-radius:18px;padding:8mm;text-align:center;break-inside:avoid}
+    .ic{font-size:44px}.c small{color:#666}.c h2{margin:2px 0;font-size:26px}.c p{margin:0 0 6px;font-size:13px;color:#555;min-height:2.6em}.qr{width:55mm;height:55mm;margin:0 auto}.qr svg{width:100%;height:100%}.u{font-size:12px;margin-top:6px}
+    @media print{.bar{display:none}body{background:#fff}.g{padding:0}}</style></head>
+    <body><div class="bar"><button onclick="print()">🖨️ พิมพ์</button></div><div class="g">${cards}</div></body></html>`);
+  w.document.close();
 }
 
 function vLobby(g) {
@@ -566,7 +675,7 @@ function vQuestionX(g) {
   const q = g.q; deadline = (g._t || performance.now()) + g.left;
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML(g, passedOf(g))}</div>
-    <div class="qstage"><div class="card qcard rise"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${timerSVG(q)}</div>
+    <div class="qstage ${q.img ? 'has-img' : ''}"><div class="card qcard rise"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${himg(q)}${timerSVG(q)}</div>
     ${q.type === 'fill' ? fillHTML(q) : matchHTML(q, false, g)}
     <div class="qfoot"><div class="answered">ส่งแล้ว <b id="nAns">${g.answered}</b> / <span id="nAll">${g.players.length}</span> คน</div>
       <button class="btn sun big" id="bReveal">เฉลยเลย ✓</button></div>`;
@@ -579,7 +688,7 @@ function vRevealX(g) {
   const q = g.q, total = g.players.length, n = g.answered || 0, avg = (g.trail || [])[g.idx] || 0;
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">เฉลยข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML({ ...g, trail: (g.trail || []).slice(0, g.idx) }, 0)}</div>
-    <div class="qstage"><div class="card qcard"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span>${esc(q.q)}</div>
+    <div class="qstage ${q.img ? 'has-img' : ''}"><div class="card qcard"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span>${esc(q.q)}</div>${himg(q)}
       <div class="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/></svg><b style="font-size:34px;line-height:1.1;text-align:center">${Math.round(avg * 100)}%<small style="display:block;font-size:15px;font-weight:400">ถูกเฉลี่ย</small></b></div></div>
     ${q.type === 'fill' ? fillHTML(q) : matchHTML(q, true, g)}
     <div class="qfoot"><div class="revnote">
@@ -626,8 +735,8 @@ function vQuestion(g) {
   const C = 2 * Math.PI * 54;
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML(g, passedOf(g))}</div>
-    <div class="qstage ${pun ? 'has-pun' : ''}">
-      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${pun}
+    <div class="qstage ${pun ? 'has-pun' : ''} ${q.img ? 'has-img' : ''}">
+      <div class="card qcard rise"><span class="qno">คำถามข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${himg(q)}${pun}
       <div class="timer" id="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/>
         <circle class="tr" id="ring" cx="65" cy="65" r="54" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg><b id="tNum">${q.t}</b></div>
     </div>
@@ -665,7 +774,7 @@ function vReveal(g) {
   const P = q.g ? parsePunnett(q.g) : null, pun = P && !P.error ? punnettHTML(P, { filled: true }) : '';
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">เฉลยข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML({ ...g, trail: (g.trail || []).slice(0, g.idx) }, passedOf({ trail: (g.trail || []).slice(0, g.idx) }))}</div>
-    <div class="qstage ${pun ? 'has-pun' : ''}"><div class="card qcard"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>${pun}
+    <div class="qstage ${pun ? 'has-pun' : ''} ${q.img ? 'has-img' : ''}"><div class="card qcard"><span class="qno">คำถามข้อ ${g.idx + 1}</span>${esc(q.q)}</div>${himg(q)}${pun}
       <div class="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/></svg><b style="font-size:34px;line-height:1.1;text-align:center">${pctOk}%<small style="display:block;font-size:15px;font-weight:400">ตอบถูก</small></b></div></div>
     <div class="hans revealed ${two ? 'two' : ''}">${q.c.map((c, i) => `<div class="ha o${i} ${i === q.a ? 'right' : ''}">${shape(i)}<span>${esc(c)}</span>
       <span class="cnt"><i style="width:0" data-w="${Math.round((g.dist[i] / max) * 120)}"></i><em data-n="${g.dist[i]}">0</em></span>${i === q.a ? '<span class="tick">✓</span>' : ''}</div>`).join('')}</div>

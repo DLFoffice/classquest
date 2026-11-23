@@ -211,3 +211,72 @@
 .mygems div{display:flex;gap:10px;justify-content:center;margin-top:4px}
 .mygems span{font-size:30px;filter:grayscale(1) opacity(.35)}.mygems span.got{filter:drop-shadow(0 0 8px #FFE066)}
 @media (max-width:1000px){.selfdash{grid-template-columns:1fr}.sd-row{grid-template-columns:36px 36px 1fr 90px}.sd-pg,.sd-c{display:none}}
+
+/* ===== โหมดฐาน + ภาพประกอบ ===== */
+.mode.wide{grid-column:1/-1}
+.gs.rot{margin-top:2px;padding:7px 12px;font-size:12.5px;white-space:normal;line-height:1.35}
+.imgrow{display:flex;gap:8px;margin-top:10px}
+.imgadd,.imglink{border:1.5px dashed #C9C0FF;background:#F7F5FF;color:#4B3BAE;border-radius:12px;padding:8px 14px;font-size:14px;cursor:pointer}
+.imgadd{flex:1}.imgadd:hover,.imglink:hover{background:#EFEAFF}
+.imgrow.has{align-items:center;gap:14px;background:#F7F5FF;border-radius:16px;padding:8px}
+.imgrow.has img{width:130px;height:88px;object-fit:cover;border-radius:12px;cursor:zoom-in;box-shadow:0 4px 12px -4px rgba(0,0,0,.35)}
+.imgrow.has b{display:block;font-size:14.5px}.imgrow.has small{display:block;font-size:12px;color:#6B6F8A;margin-bottom:6px}
+.imgrow.has span{display:flex;gap:6px}.imgrow.has .ed-ghost{flex:0 0 auto;font-size:13px;padding:5px 10px}
+.qed.uploading{opacity:.6;pointer-events:none}
+.qed.uploading::after{content:'กำลังอัปโหลดภาพ…';position:absolute;inset:0;display:grid;place-items:center;font-size:20px;color:#4B3BAE;background:rgba(255,255,255,.6);border-radius:24px}
+.qstage.has-img{grid-template-columns:1fr auto 130px}
+.qstage.has-img.has-pun{grid-template-columns:1fr auto auto 130px}
+.himg{margin:0;background:#fff;border:3px solid var(--ink);border-radius:20px;padding:6px;box-shadow:var(--sh);cursor:zoom-in;animation:pop .5s .1s var(--spring) both}
+.himg img{display:block;max-height:30vh;max-width:34vw;border-radius:14px}
+.qimg{margin:0;position:relative;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 8px 20px -10px rgba(0,0,0,.5);cursor:zoom-in}
+.qimg img{display:block;width:100%;max-height:34vh;object-fit:contain;background:#fff}
+.qimg span{position:absolute;right:8px;bottom:8px;font-size:11.5px;background:rgba(34,34,59,.75);color:#fff;border-radius:99px;padding:2px 8px}
+.zoom{position:fixed;inset:0;z-index:120;background:rgba(10,10,25,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;animation:fadein .25s both;cursor:zoom-out}
+.zoom img{max-width:100%;max-height:88vh;border-radius:12px;animation:pop .35s var(--spring) both}
+.zoom span{color:#fff;font-size:14px;opacity:.8}
+/* จอครู: แดชบอร์ดฐาน */
+.stdash{display:flex;flex-direction:column;gap:14px;max-width:1600px;margin:0 auto;width:100%;flex:1}
+.std-top{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center}
+.std-join{display:flex;gap:14px;align-items:center;padding:12px 16px}
+.qr.sm{width:120px;height:120px;padding:6px;border-width:2px;border-radius:12px}
+.std-join small{display:block;font-size:12px;color:#6B6F8A}.std-join b{display:block;font-size:15px;color:#4B3BAE;margin-bottom:4px}
+.pin-mid{font-size:40px;font-weight:600;letter-spacing:.1em;line-height:1}
+.std-title small{font-size:15px;opacity:.9}.std-title h1{margin:0 0 8px;font-size:30px}
+.sd-kpi.kmini div{padding:8px 12px}.sd-kpi.kmini b{font-size:24px}
+.std-btns{display:flex;flex-direction:column;gap:8px}
+.std-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;flex:1;min-height:0}
+.stcol{display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.95);color:var(--ink);border-radius:24px;padding:12px;box-shadow:0 12px 30px -14px rgba(0,0,0,.5);border-top:7px solid var(--stc);min-height:0}
+.stcol header{display:flex;align-items:center;gap:10px}
+.stcol header span{font-size:34px}.stcol header small{display:block;font-size:12px;color:#6B6F8A}.stcol header b{font-size:20px}
+.stc-kpi{display:flex;gap:6px;flex-wrap:wrap}
+.stc-kpi span{flex:1;background:color-mix(in srgb,var(--stc) 12%,#fff);border-radius:12px;padding:4px 8px;font-size:12px;text-align:center;color:#4A4E69}
+.stc-kpi b{display:block;font-size:20px;color:var(--ink)}
+.stc-list{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:calc(100vh - 420px)}
+.stp-row{display:flex;align-items:center;gap:8px;background:#FAFAFD;border-radius:14px;padding:6px 8px}
+.stp-row.new{animation:rise .5s var(--spring)}
+.stp-row .av{font-size:26px}.stp-row>div{flex:1;min-width:0}
+.stp-row b{display:block;font-size:15px;line-height:1.2}.stp-row small{display:block;font-size:11px;color:#8A8DA6;font-family:'Sarabun';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stp-row .sd-bar{height:8px;margin:3px 0 0}
+.stp-row em{font-style:normal;font-family:'Mitr';font-size:14px;color:var(--stc)}
+.stc-empty{margin:6px 0;font-size:13px;color:#A2A5BD;text-align:center}
+.stc-done{display:flex;flex-wrap:wrap;gap:4px}
+.stc-done small{width:100%;font-size:12px;color:#1A8A5E}
+.stc-done span{font-size:12px;background:#E9F9F2;border-radius:99px;padding:2px 8px}
+/* มือถือ: เลือกฐาน */
+.stpick{display:flex;flex-direction:column;gap:10px;align-items:center}
+.stgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.stc{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;border-radius:22px;padding:14px 8px;background:#fff;color:var(--ink);cursor:pointer;
+  box-shadow:0 10px 22px -12px rgba(0,0,0,.5);border-bottom:6px solid var(--stc,#7B61FF);transition:transform .2s var(--spring)}
+.stc:active{transform:scale(.96)}
+.stc-ic{font-size:44px;line-height:1.1}.stc small{font-size:12px;color:#8A8DA6}.stc b{font-size:17px}.stc em{font-style:normal;font-size:12px;color:#4A4E69}
+.stc.done{opacity:.75;background:#F1FBF6}
+.sh-card.st-snow,.sh-card.st-fire,.sh-card.st-earth,.sh-card.st-wind{border-top:6px solid var(--stc)}
+@media (max-width:1100px){.std-top{grid-template-columns:1fr}.himg img{max-width:80vw}}
+.std-top{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.std-title{flex:1;min-width:420px}
+.std-title .sd-kpi.kmini{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.std-title .sd-kpi.kmini div{padding:6px 10px;white-space:nowrap}
+.std-title .sd-kpi.kmini small{font-size:12px}
+.std-btns{flex:0 0 auto}
+.std-cols{align-items:start}
+.stcol{max-height:calc(100vh - 300px)}

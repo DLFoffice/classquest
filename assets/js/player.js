@@ -9,7 +9,8 @@ $('#brandName').textContent = CFG.APP_NAME || 'ห้องเรียนผจ
 const SS = { get: (k) => { try { return JSON.parse(sessionStorage.getItem('cqp:' + k)); } catch (e) { return null; } },
   set: (k, v) => { try { sessionStorage.setItem('cqp:' + k, JSON.stringify(v)); } catch (e) {} } };
 
-let me = SS.get('me'); // { pin, pid, name, av }
+let me = SS.get('me');
+let ST_PARAM = Number(new URLSearchParams(location.search).get('st')) || 0; // { pin, pid, name, av }
 let st = null, lastKey = '', pollT = null, timerT = null, deadline = 0, failCount = 0;
 const POLL = DEMO ? 700 : 1800;
 
@@ -140,8 +141,15 @@ function vLobby(s) {
 
 // ===================================================== ข้อแบบเติมตาราง / จับคู่ (มือถือ)
 const stChip = (s) => (s.stage ? `<span class="chip stg-chip st-${esc(s.stage.th || '')}">${esc(s.stage.ic)} ด่าน ${s.stage.no}</span>` : '');
+const dNo = (s) => (s.dno != null ? `${s.dno}/${s.dtot}` : `${s.idx + 1}/${s.total}`);
+function imgHTML(q) { return q.img ? `<figure class="qimg" data-zoom="1"><img src="${esc(q.img)}" alt="ภาพประกอบโจทย์" loading="eager"><span>🔍 แตะเพื่อขยาย</span></figure>` : ''; }
+document.addEventListener('click', (e) => {
+  const f = e.target.closest('[data-zoom]'); if (!f) return;
+  const src = f.querySelector('img').src, ov = document.createElement('div'); ov.className = 'zoom';
+  ov.innerHTML = `<img src="${esc(src)}" alt=""><span>แตะเพื่อปิด</span>`; ov.onclick = () => ov.remove(); document.body.appendChild(ov);
+});
 function qHead(s, label) {
-  return `<div class="pq-head"><span class="chip">${label} ${s.idx + 1}/${s.total}</span>${stChip(s)}<span id="tLeft" class="chip">⏱ ${Math.ceil(s.left / 1000)}</span></div>
+  return `<div class="pq-head"><span class="chip">${label} ${dNo(s)}</span>${stChip(s)}<span id="tLeft" class="chip">⏱ ${Math.ceil(s.left / 1000)}</span></div>
     <div class="tbar" id="tbar"><i></i></div>`;
 }
 function phoneTimer(s, onEnd) {
@@ -168,7 +176,7 @@ function vFill(s) {
   deadline = (s._t || performance.now()) + s.left;
   const slot = (kind, i, txt) => `<button class="fs ${kind === 'c' ? 'cell' : 'hd'}" data-kind="${kind}" data-i="${i}">${txt}</button>`;
   view.innerHTML = `${qHead(s, '🧬')}
-    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>
+    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>${imgHTML(q)}
     <div class="fparents">${[0, 1].map((i) => `<div><div class="pfox">${foxSVG(q.fur[i])}</div><span>${esc(q.pl[i] || '')}</span></div>`).join('<b>×</b>')}</div>
     <div class="fgrid" style="--c:${n1}"><table><tr><th class="corner">♀\\♂</th>${Array.from({ length: n1 }, (_, i) => `<th>${hx ? slot('h1', i, '?') : esc(q.h1[i])}</th>`).join('')}</tr>
       ${Array.from({ length: n2 }, (_, r) => `<tr><th>${hx ? slot('h2', r, '?') : esc(q.h2[r])}</th>${Array.from({ length: n1 }, (_, c) => `<td>${slot('c', r * n1 + c, '')}</td>`).join('')}</tr>`).join('')}</table></div>
@@ -198,7 +206,7 @@ function vMatch(s) {
   let selL = null;
   deadline = (s._t || performance.now()) + s.left;
   view.innerHTML = `${qHead(s, '🔗')}
-    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>
+    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>${imgHTML(q)}
     <p class="mhint">แตะคำด้านซ้าย แล้วแตะคู่ของมันด้านขวา</p>
     <div class="mgrid"><div class="mc">${q.L.map((x, i) => `<button class="mi l" data-l="${i}"><b>${i + 1}</b><span>${esc(x)}</span><em></em></button>`).join('')}</div>
       <div class="mc">${q.R.map((x, j) => `<button class="mi r" data-r="${j}"><b>${TH[j]}</b><span>${esc(x)}</span></button>`).join('')}</div></div>
@@ -241,6 +249,13 @@ function detailHTML(r) {
 // ===================================================== โหมดนักเรียนเล่นเอง
 let selfStage = null, submitting = -1;
 function vSelfHome(s) {
+  if (s.mode === 'station') {
+    const want = ST_PARAM;
+    const curOpen = s.me && s.me.cur != null && (s.stations || []).find((x) => String(x.k) === String(s.me.cur) && !x.done);
+    if (curOpen) return vStationGo(s, curOpen);
+    if (want >= 1 && !(s.stations || []).find((x) => x.k === want - 1 && x.done) && (s.me.cur == null || s.rotate)) { ST_PARAM = 0; return startStation(want - 1); }
+    return vStations(s.stations || [], s);
+  }
   const m = s.me || { i: 0 }, started = m.i > 0;
   view.innerHTML = `<div class="center rise selfhome">
     <div class="wait-av">${avatar(me.av)}</div>
@@ -253,17 +268,41 @@ function vSelfHome(s) {
   $('#bSelf').onclick = () => { SELF = true; selfNext(); };
   $('#bLeave').onclick = () => { SS.set('me', { ...me, pid: '' }); me = { ...me, pid: '' }; lastKey = ''; showJoin(); };
 }
+function vStations(list, s) {
+  SELF = false; lastKey = 'self';
+  const doneN = list.filter((x) => x.done).length;
+  view.innerHTML = `<div class="center rise stpick">
+    <div class="wait-av">${avatar(me.av)}</div><h1>${doneN ? 'เลือกฐานต่อไป' : 'เลือกฐานของฉัน'}</h1>
+    <p class="muted">${doneN ? `ผ่านแล้ว ${doneN}/${list.length} ฐาน · คะแนนรวม ${(st && st.score || 0).toLocaleString()}` : 'แตะฐานที่คุณครูกำหนดให้กลุ่มของเรา'}</p>
+    <div class="stgrid">${list.map((x) => `<button class="stc st-${esc(x.th || '')} ${x.done ? 'done' : ''}" data-st="${x.k}" ${x.done ? 'disabled' : ''}>
+      <span class="stc-ic">${esc(x.ic)}</span><small>ฐานที่ ${x.k + 1}</small><b>${esc(x.n)}</b><em>${x.done ? `✅ ผ่านแล้ว · ${x.s.toLocaleString()} คะแนน` : `${x.total} ข้อ${x.i ? ` · ทำแล้ว ${x.i}` : ''}`}</em></button>`).join('')}</div></div>`;
+  $$('.stc[data-st]').forEach((b) => (b.onclick = () => startStation(+b.dataset.st)));
+}
+function vStationGo(s, x) {
+  SELF = false; lastKey = 'self';
+  view.innerHTML = `<div class="center rise selfhome"><div class="wait-av">${avatar(me.av)}</div><h1>สวัสดี ${esc(s.name)}!</h1>
+    <div class="card sh-card st-${esc(x.th || '')}"><small>ฐานที่ ${x.k + 1}</small><b>${esc(x.ic)} ${esc(x.n)}</b><p class="muted">ทำไปแล้ว ${x.i}/${x.total} ข้อ</p></div>
+    <button class="mj-go" id="bSelf"><span>ทำต่อ</span><i>▶</i></button></div>`;
+  $('#bSelf').onclick = () => { SELF = true; selfStage = null; selfNext(); };
+}
+async function startStation(k) {
+  try { await call('sstart', { pin: me.pin, pid: me.pid, st: k }); SELF = true; selfStage = null; history.replaceState(null, '', location.pathname + '?pin=' + me.pin); selfNext(); }
+  catch (e) { toast(e.message); }
+}
 async function selfNext(force) {
   try {
     const pk = force ? null : await call('squestion', { pin: me.pin, pid: me.pid, peek: true });
+    if (pk && pk.pick) { SELF = false; return vStations(pk.stations, st); }
+    if (pk && pk.done) return swap(() => vSelfEnd(pk), '🏆');
     if (pk && pk.peek && pk.stage && (!selfStage || selfStage.no !== pk.stage.no)) {
       selfStage = pk.stage; backdrop(pk.theme || 'class');
       return swap(() => vSelfStage(pk), `${pk.stage.ic} ${pk.stage.n}`);
     }
     const d = await call('squestion', { pin: me.pin, pid: me.pid });
     if (d.ended) { SELF = false; lastKey = ''; return toast('คุณครูปิดห้องแล้ว'); }
+    if (d.pick) { SELF = false; return vStations(d.stations, st); }
     if (d.done) return swap(() => vSelfEnd(d), '🏆');
-    const s = { ...st, phase: 'question', idx: d.idx, total: d.total, q: d.q, left: d.left, stage: d.stage, theme: d.theme, _t: performance.now() };
+    const s = { ...st, phase: 'question', idx: d.idx, total: d.total, dno: d.pos + 1, dtot: d.n, q: d.q, left: d.left, stage: d.stage, theme: d.theme, _t: performance.now() };
     st = s; submitting = -1;
     selfStage = d.stage || selfStage;
     backdrop(d.theme || 'class');
@@ -299,8 +338,8 @@ function vSelfResult(d) {
     ${r.ok ? '' : detailHTML(r)}
     ${d.streak >= 2 ? `<div class="center"><span class="streak"><span class="fire">🔥</span> ตอบถูกติดกัน ${d.streak} ข้อ</span></div>` : ''}
     ${r.explain ? `<div class="card explain rise">💡 ${esc(r.explain)}</div>` : ''}
-    <div class="card selfprog"><div class="sp-bar"><i style="width:${((d.idx + 1) / d.total) * 100}%"></i></div>
-      <span>ข้อ ${d.idx + 1}/${d.total}</span><span>อันดับตอนนี้ <b>${d.rank}</b>/${d.players}</span></div>
+    <div class="card selfprog"><div class="sp-bar"><i style="width:${((d.pos + 1) / d.n) * 100}%"></i></div>
+      <span>ข้อ ${d.pos + 1}/${d.n}</span><span>อันดับตอนนี้ <b>${d.rank}</b>/${d.players}</span></div>
     <button class="mj-go" id="bNextQ"><span>${d.done ? 'ดูผลสรุป' : 'ข้อต่อไป'}</span><i>${d.done ? '🏆' : '▶'}</i></button>`;
   countUp($('#gain'), 0, r.gained, 800);
   countUp($('#meScore'), prevScore, d.score, 1000); prevScore = d.score;
@@ -309,6 +348,7 @@ function vSelfResult(d) {
   $('#bNextQ').onclick = () => selfNext();
 }
 function vSelfEnd(d) {
+  if (d.stations) return vStationEnd(d);
   SELF = false; lastKey = 'self-end';
   const medal = d.rank === 1 ? '🥇' : d.rank === 2 ? '🥈' : d.rank === 3 ? '🥉' : '🏅';
   const gems = (d.stages || []).map((x, k) => { const ix = (d.stq || []).map((s2, i) => (s2 === k ? i : -1)).filter((i) => i >= 0 && d.f[i] != null);
@@ -324,6 +364,21 @@ function vSelfEnd(d) {
   confetti(140); if (d.rank <= 3) fireworks(3500);
 }
 
+function vStationEnd(d) {
+  SELF = false; lastKey = 'self-end';
+  const left = d.stations.filter((x) => !x.done), X = d.station || {};
+  view.innerHTML = `<div class="center" style="display:flex;flex-direction:column;gap:14px;align-items:center">
+    <div class="final-medal">${esc(X.ic || '🏅')}</div><h1>ผ่านฐาน${esc(X.n || '')}!</h1>
+    <div class="card rankcard" style="width:100%"><div class="rk">${d.stationCorrect}/${d.total}</div><div style="text-align:left">
+      <b style="font-size:19px">ได้ ${d.stationScore.toLocaleString()} คะแนนในฐานนี้</b>
+      <small>คะแนนรวม ${d.score.toLocaleString()} · อันดับ ${d.rank}/${d.players} (ตอนนี้)</small></div></div>
+    <div class="card mygems"><small>ฐานที่ผ่านแล้ว</small><div>${d.stations.map((x) => `<span class="${x.done ? 'got' : ''}" title="${esc(x.n)}">${esc(x.ic)}</span>`).join('')}</div></div>
+    ${left.length && d.rotate ? `<p class="muted">เมื่อคุณครูให้สัญญาณ ไปฐานต่อไปได้เลย</p><button class="mj-go" id="bMore"><span>เลือกฐานต่อไป</span><i>🧭</i></button>`
+      : `<div class="hero-mascot">${mascotFor(st.theme)}</div><p class="muted">${left.length ? 'รอคุณครูให้สัญญาณนะ ✨' : 'ผ่านครบทุกฐานแล้ว! สุดยอด 🎉'}</p>`}</div>`;
+  confetti(120); if (!left.length) fireworks(3500);
+  if ($('#bMore')) $('#bMore').onclick = () => vStations(d.stations, st);
+}
+
 function syncTimer(left) { deadline = performance.now() + left; }
 function vQuestion(s) {
   if (s.q.type === 'fill') return vFill(s);
@@ -331,9 +386,9 @@ function vQuestion(s) {
   const q = s.q, two = q.c.length === 2;
   deadline = (s._t || performance.now()) + s.left;
   view.innerHTML = `
- <div class="pq-head"><span class="chip">ข้อ ${s.idx + 1} / ${s.total}</span>${stChip(s)}<span id="tLeft" class="chip">⏱ ${Math.ceil(s.left / 1000)}</span></div>
+ <div class="pq-head"><span class="chip">ข้อ ${dNo(s).replace('/', ' / ')}</span>${stChip(s)}<span id="tLeft" class="chip">⏱ ${Math.ceil(s.left / 1000)}</span></div>
     <div class="tbar" id="tbar"><i></i></div>
-    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>
+    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>${imgHTML(q)}
     <div class="pans ${two ? 'two' : ''}">${q.c.map((c, i) => `<button class="o${i}" data-i="${i}">${shape(i)}<span>${esc(c)}</span></button>`).join('')}</div>`;
   $$('.pans button').forEach((b) => b.addEventListener('click', () => send(Number(b.dataset.i), s.idx)));
   const bar = $('#tbar i'), total = q.t * 1000;

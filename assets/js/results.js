@@ -62,7 +62,8 @@ function compute() {
     const rows = A.filter((r) => Number(r[3]) === q), ok = rows.filter((r) => r[7] === 'ถูก').length;
     const wrong = {}; rows.filter((r) => r[7] !== 'ถูก').forEach((r) => (wrong[r[6]] = (wrong[r[6]] || 0) + 1));
     const top = Object.entries(wrong).sort((a, b) => b[1] - a[1])[0];
-    return { q, text: qText[q], n: rows.length, ok, rate: rows.length ? ok / rows.length : 0, wrongTop: top };
+    const stn = (rows.find((x) => x[12]) || [])[12] || '';
+    return { q, stn, text: qText[q], n: rows.length, ok, rate: rows.length ? ok / rows.length : 0, wrongTop: top };
   });
   return { pin, title, qn, qs, people, total: qn.length, finished: final.length > 0 };
 }
@@ -101,7 +102,7 @@ function render() {
         <div class="qrows">${s.qs.map((q, i) => `
           <div class="qrow ${tone(q.rate)}" style="--d:${i * 0.05}s">
             <span class="qn">${q.q}</span>
-            <div class="qt">${esc(q.text)}${q.wrongTop && q.rate < 0.8 ? `<small>คำตอบผิดที่พบบ่อย: <b>${esc(q.wrongTop[0])}</b> (${q.wrongTop[1]} คน)</small>` : ''}</div>
+            <div class="qt">${q.stn ? `<em class="stn">${esc(q.stn)}</em>` : ''}${esc(q.text)}${q.wrongTop && q.rate < 0.8 ? `<small>คำตอบผิดที่พบบ่อย: <b>${esc(q.wrongTop[0])}</b> (${q.wrongTop[1]} คน)</small>` : ''}</div>
             <div class="qbar"><i style="--w:${q.rate * 100}%"></i></div>
             <span class="qp">${Math.round(q.rate * 100)}%<small>${q.ok}/${q.n}</small></span>
           </div>`).join('')}</div>

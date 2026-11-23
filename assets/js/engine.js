@@ -8,6 +8,9 @@ var CQ = (function () {
   function err(msg) { var e = new Error(msg); e.cq = true; return e; }
   function spKey(pin, pid) { return 'sp_' + pin + '_' + pid; }
   function phoneQ(q) {
+    var o = phoneQ0(q); if (q.img) o.img = q.img; return o;
+  }
+  function phoneQ0(q) {
     if (q.type === 'fill') return { type: 'fill', q: q.q, t: q.t, hx: q.hx, h1: q.hx ? null : q.h1, h2: q.hx ? null : q.h2, cols: q.h1.length, rows: q.h2.length, opts: q.opts, pl: q.pl, fur: q.fur };
     if (q.type === 'match') return { type: 'match', q: q.q, t: q.t, L: q.p.map(function (x) { return x.l; }), R: q.perm.map(function (j) { return q.p[j].r; }) };
     return { type: 'mc', q: q.q, c: q.c, t: q.t };
@@ -39,11 +42,12 @@ var CQ = (function () {
       var no = 'ข้อ ' + (i + 1) + ' ', ty = q.type === 'fill' || q.type === 'match' ? q.type : 'mc';
       if (!clip(q.q, 300)) throw err(no + 'ยังไม่มีคำถาม');
       var st = Number(q.st); st = st >= 0 && st < 8 ? Math.floor(st) : -1;
+      var img = String(q.img || ''); img = /^https:\/\/[^\s"'<>]{8,800}$/.test(img) || /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(img) ? img : '';
       if (ty === 'fill') {
         var k = (q.k || []).map(function (x) { return clip(x, 8); }), h1 = (q.h1 || []).map(function (x) { return clip(x, 4); }), h2 = (q.h2 || []).map(function (x) { return clip(x, 4); });
         if (!k.length || k.length > 40 || !h1.length || !h2.length || k.some(function (x) { return !x; })) throw err(no + 'ตารางพันนิตต์ยังไม่ถูกต้อง');
         var fur = (q.fur || []).slice(0, 2).map(function (x) { return /^#[0-9a-fA-F]{3,8}$/.test(String(x)) ? String(x) : '#ffffff'; });
-        return { type: 'fill', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 60)), x: clip(q.x, 200), st: st, g: clip(q.g, 60),
+        return { type: 'fill', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 60)), x: clip(q.x, 200), st: st, img: img, g: clip(q.g, 60),
           k: k, h1: h1, h2: h2, hx: !!q.hx, opts: (q.opts || []).slice(0, 12).map(function (x) { return clip(x, 8); }),
           pl: [clip((q.pl || [])[0], 40), clip((q.pl || [])[1], 40)], fur: fur };
       }
@@ -55,14 +59,14 @@ var CQ = (function () {
           for (var m = perm.length - 1; m > 0; m--) { var j2 = Math.floor(Math.random() * (m + 1)), tmp = perm[m]; perm[m] = perm[j2]; perm[j2] = tmp; }
           if (perm.some(function (v, j) { return v !== j; })) break;
         }
-        return { type: 'match', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 45)), x: clip(q.x, 200), st: st, p: pr, perm: perm };
+        return { type: 'match', q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 45)), x: clip(q.x, 200), st: st, img: img, p: pr, perm: perm };
       }
       var c = (q.c || []).map(function (x) { return clip(x, 120); }).filter(function (x) { return x; });
       var a = Number(q.a);
       if (c.length < 2) throw err('ข้อ ' + (i + 1) + ' ต้องมีตัวเลือกอย่างน้อย 2 ตัว');
       if (!(a >= 0 && a < c.length)) throw err('ข้อ ' + (i + 1) + ' ยังไม่ได้เลือกคำตอบที่ถูก');
       var t = Math.max(5, Math.min(120, Number(q.t) || 20));
-      return { type: 'mc', q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200), g: clip(q.g, 60), gs: !!q.gs, st: st };
+      return { type: 'mc', q: clip(q.q, 300), c: c, a: a, t: t, x: clip(q.x, 200), g: clip(q.g, 60), gs: !!q.gs, st: st, img: img };
     });
   }
 
@@ -122,10 +126,11 @@ var CQ = (function () {
         if (!store.get(roomKey(p))) pin = p;
       }
       if (!pin) throw err('สร้างห้องไม่สำเร็จ ลองใหม่อีกครั้ง');
-      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', theme: clip(o.theme, 12), qs: qs, stages: cleanStages(o.stages), mode: o.mode === 'self' ? 'self' : 'live', phase: o.mode === 'self' ? 'self' : 'lobby', idx: -1,
+      if (o.mode === 'station' && !(o.stages || []).length) throw err('โหมดฐานต้องเปิดใช้ระบบด่านก่อน');
+      var r = { pin: pin, title: clip(o.title, 80) || 'ภารกิจตอบคำถาม', theme: clip(o.theme, 12), qs: qs, stages: cleanStages(o.stages), mode: o.mode === 'self' || o.mode === 'station' ? o.mode : 'live', rotate: o.rotate !== false, phase: o.mode === 'self' || o.mode === 'station' ? 'self' : 'lobby', idx: -1,
         qStart: 0, qEnd: 0, players: {}, order: [], created: store.now(), last: null, ver: 0 };
       save(store, r);
-      store.append('rooms', [[new Date(store.now()), pin, r.title, qs.length, r.mode === 'self' ? 'สร้างห้อง (นักเรียนเล่นเอง)' : 'สร้างห้อง (เล่นสด)']]);
+      store.append('rooms', [[new Date(store.now()), pin, r.title, qs.length, r.mode === 'station' ? 'สร้างห้อง (แบบฐาน)' : r.mode === 'self' ? 'สร้างห้อง (นักเรียนเล่นเอง)' : 'สร้างห้อง (เล่นสด)']]);
       return { pin: pin };
     });
   }
@@ -165,7 +170,7 @@ var CQ = (function () {
           : q.p.map(function (x, i) { return x.l + '→' + (q.p[q.perm[a.c[i]]] || {}).r; }).join(' | ');
         var cnt = gr.items ? gr.items.filter(Boolean).length : 0;
         rows.push([now, r.pin, r.title, r.idx + 1, q.q, p.n, txt, gr.ok ? 'ถูก' : !mc && cnt ? 'ถูกบางส่วน ' + cnt + '/' + nItems : 'ผิด',
-          a ? Math.round(a.ms / 100) / 10 : '', g, p.s, p.f || '']);
+          a ? Math.round(a.ms / 100) / 10 : '', g, p.s, p.f || '', q.st >= 0 && r.stages && r.stages[q.st] ? r.stages[q.st].n : '']);
       });
       r.phase = 'reveal'; r.last = { idx: r.idx, dist: dist, res: res, n: Object.keys(got).length, itemOk: itemOk };
       r.trail = r.trail || [];
@@ -186,7 +191,7 @@ var CQ = (function () {
   }
 
   function finish(store, r) {
-    if (r.mode === 'self') {
+    if (r.mode === 'self' || r.mode === 'station') {
       var sps = store.getAll(r.order.map(function (pid) { return spKey(r.pin, pid); }));
       r.order.forEach(function (pid) { var sp = sps[spKey(r.pin, pid)]; if (sp) { r.players[pid].s = sp.s; r.players[pid].c = sp.c; } });
     }
@@ -223,8 +228,12 @@ var CQ = (function () {
     out.mode = r.mode || 'live';
     if (r.phase === 'self') {
       var sps = store.getAll(r.order.map(function (pid) { return spKey(r.pin, pid); }));
-      out.self = r.order.map(function (pid) { var p = r.players[pid], sp = sps[spKey(r.pin, pid)] || {};
-        return { pid: pid, name: p.n, full: p.f || '', av: p.av, i: sp.i || 0, s: sp.s || 0, c: sp.c || 0, done: !!sp.done, started: !!sp.t0 }; });
+      var nAll = r.qs.length;
+      out.rotate = !!r.rotate;
+      out.self = r.order.map(function (pid) { var p = r.players[pid], sp = sps[spKey(r.pin, pid)] || { P: {} }, P = sp.P || {}, A = P.a || {};
+        var stp = {}; Object.keys(P).forEach(function (key) { if (key !== 'a') stp[key] = { i: P[key].i, done: !!P[key].done, s: P[key].s, c: P[key].c }; });
+        return { pid: pid, name: p.n, full: p.f || '', av: p.av, i: r.mode === 'station' ? Object.keys(stp).reduce(function (a, x) { return a + stp[x].i; }, 0) : A.i || 0,
+          s: sp.s || 0, c: sp.c || 0, done: r.mode === 'station' ? false : !!A.done, started: !!sp.t0, cur: sp.cur == null ? null : sp.cur, stp: stp }; });
     }
     if (r.idx >= 0) out.q = r.qs[r.idx];
     out.trail = r.trail || [];
@@ -292,32 +301,75 @@ var CQ = (function () {
     return { ok: true };
   }
 
-  // ---------------------------------------------------------------- โหมดนักเรียนเล่นเอง
+  // ---------------------------------------------------------------- โหมดนักเรียนเล่นเอง / โหมดฐาน
+  // sp = { s, c, st, t0, cur: 'a' | '0'..'7' | null, P: { key: { i, qs, f[], done, s, c } } }
+  function listFor(r, key) {
+    if (key === 'a') return r.qs.map(function (_, i) { return i; });
+    var k = Number(key); return r.qs.map(function (q, i) { return q.st === k ? i : -1; }).filter(function (i) { return i >= 0; });
+  }
+  function spLoad(store, r, pid) {
+    var sp = store.get(spKey(r.pin, pid)) || { s: 0, c: 0, st: 0, t0: 0, cur: r.mode === 'station' ? null : 'a', P: {} };
+    if (!sp.P) sp.P = {};
+    return sp;
+  }
+  function pg(sp, key) { return sp.P[key] || (sp.P[key] = { i: 0, qs: 0, f: [], done: false, s: 0, c: 0 }); }
+  function stationList(r, sp) {
+    return (r.stages || []).map(function (x, k) {
+      var L = listFor(r, String(k)), P = (sp && sp.P[String(k)]) || null;
+      return { k: k, n: x.n, ic: x.ic, th: x.th, d: x.d, total: L.length, i: P ? P.i : 0, done: !!(P && P.done), s: P ? P.s : 0, c: P ? P.c : 0 };
+    }).filter(function (x) { return x.total > 0; });
+  }
   function selfRank(store, r, pid) {
     var sps = store.getAll(r.order.map(function (x) { return spKey(r.pin, x); })), me = sps[spKey(r.pin, pid)] || { s: 0 }, rank = 1;
     r.order.forEach(function (x) { var o2 = sps[spKey(r.pin, x)]; if (x !== pid && o2 && o2.s > me.s) rank++; });
     return { rank: rank, players: r.order.length };
   }
+  function sStart(store, o) {
+    var r = getRoom(store, o.pin), pid = String(o.pid || '');
+    if (!r.players[pid]) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
+    if (r.mode !== 'station') throw err('ห้องนี้ไม่ใช่โหมดฐาน');
+    var k = String(Math.floor(Number(o.st))), sp = spLoad(store, r, pid);
+    if (!listFor(r, k).length) throw err('ไม่พบฐานนี้');
+    if (sp.cur != null && sp.cur !== k) {
+      var curP = sp.P[sp.cur];
+      if (curP && !curP.done && curP.i > 0) throw err('ทำฐานเดิมให้เสร็จก่อนนะ');
+      if (!r.rotate && sp.P[sp.cur] && sp.P[sp.cur].done) throw err('คุณครูกำหนดให้ทำฐานเดียว');
+    }
+    sp.cur = k; store.put(spKey(r.pin, pid), sp);
+    return { ok: true, st: Number(k) };
+  }
+  function doneInfo(store, r, pid, sp) {
+    var rk = selfRank(store, r, pid), key = sp.cur, P = sp.P[key] || { f: [], s: 0, c: 0 };
+    return { done: true, score: sp.s, correct: sp.c, total: listFor(r, key).length, rank: rk.rank, players: rk.players, f: P.f,
+      stationScore: P.s, stationCorrect: P.c, station: key === 'a' ? null : stageInfo(r, listFor(r, key)[0]),
+      stations: r.mode === 'station' ? stationList(r, sp) : null, rotate: !!r.rotate,
+      stq: listFor(r, key).map(function (i) { return r.qs[i].st; }), stages: r.stages || [] };
+  }
   function sQuestion(store, o) {
     var r = getRoom(store, o.pin), pid = String(o.pid || '');
     if (!r.players[pid]) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
     if (r.phase === 'end') return { ended: true };
-    if (r.mode !== 'self') throw err('ห้องนี้เป็นโหมดเล่นสด');
-    var k = spKey(r.pin, pid), sp = store.get(k) || { i: 0, s: 0, c: 0, st: 0, f: [], qs: 0, t0: 0 }, now = store.now();
-    if (sp.done || sp.i >= r.qs.length) { var rk = selfRank(store, r, pid); return { done: true, score: sp.s, correct: sp.c, total: r.qs.length, rank: rk.rank, players: rk.players, f: sp.f, stq: r.qs.map(function (x) { return x.st; }), stages: r.stages || [] }; }
-    if (o.peek && !sp.qs) return { peek: true, idx: sp.i, total: r.qs.length, stage: stageInfo(r, sp.i), theme: themeOf(r, sp.i), score: sp.s };
-    if (!sp.qs) { sp.qs = now; if (!sp.t0) sp.t0 = now; store.put(k, sp); }
-    var q = r.qs[sp.i];
-    return { idx: sp.i, total: r.qs.length, q: phoneQ(q), left: Math.max(0, q.t * 1000 - (now - sp.qs)), stage: stageInfo(r, sp.i), theme: themeOf(r, sp.i), score: sp.s };
+    if (r.mode !== 'self' && r.mode !== 'station') throw err('ห้องนี้เป็นโหมดเล่นสด');
+    var k = spKey(r.pin, pid), sp = spLoad(store, r, pid), now = store.now();
+    if (sp.cur == null) return { pick: true, stations: stationList(r, sp), score: sp.s };
+    var L = listFor(r, sp.cur), P = pg(sp, sp.cur);
+    if (P.done || P.i >= L.length) return doneInfo(store, r, pid, sp);
+    var gi = L[P.i];
+    if (o.peek && !P.qs) return { peek: true, idx: gi, pos: P.i, n: L.length, total: L.length, stage: stageInfo(r, gi), theme: themeOf(r, gi), score: sp.s };
+    if (!P.qs) { P.qs = now; if (!sp.t0) sp.t0 = now; store.put(k, sp); }
+    var q = r.qs[gi];
+    return { idx: gi, pos: P.i, n: L.length, total: L.length, q: phoneQ(q), left: Math.max(0, q.t * 1000 - (now - P.qs)), stage: stageInfo(r, gi), theme: themeOf(r, gi), score: sp.s };
   }
   function sAnswer(store, o) {
     return store.lock(function () {
       var r = getRoom(store, o.pin), pid = String(o.pid || ''), p = r.players[pid];
       if (!p) throw err('ไม่พบผู้เล่น กรุณาเข้าห้องใหม่');
       if (r.phase === 'end') return { ended: true };
-      var k = spKey(r.pin, pid), sp = store.get(k), now = store.now();
-      if (!sp || sp.done || Number(o.idx) !== sp.i || !sp.qs) return { stale: true };
-      var q = r.qs[sp.i], ms = now - sp.qs, c = o.choice, a = null;
+      var k = spKey(r.pin, pid), sp = spLoad(store, r, pid), now = store.now();
+      if (sp.cur == null) return { stale: true };
+      var L = listFor(r, sp.cur), P = pg(sp, sp.cur);
+      if (P.done || Number(o.idx) !== L[P.i] || !P.qs) return { stale: true };
+      var gi = L[P.i], q = r.qs[gi], ms = now - P.qs, c = o.choice, a = null;
       if (c != null && ms <= q.t * 1000 + 2500) {
         if (q.type === 'fill' && Array.isArray(c) && c.length === q.k.length) a = { c: c.map(function (x) { return clip(x, 8); }), ms: ms };
         else if (q.type === 'match' && Array.isArray(c) && c.length === q.p.length) a = { c: c.map(Number), ms: ms };
@@ -326,18 +378,19 @@ var CQ = (function () {
       var gr = grade(q, a), g = 0;
       if (gr.ok) sp.st = (sp.st || 0) + 1; else sp.st = 0;
       if (gr.frac > 0) g = Math.round((BASE + SPEED * Math.max(0, 1 - ms / (q.t * 1000))) * gr.frac) + (gr.ok && sp.st >= 3 ? STREAK : 0);
-      if (gr.ok) sp.c++;
-      sp.s += g; sp.f.push(Math.round(gr.frac * 1000) / 1000);
+      if (gr.ok) { sp.c++; P.c++; }
+      sp.s += g; P.s += g; P.f.push(Math.round(gr.frac * 1000) / 1000);
       var mc = q.type === 'mc', nIt = gr.items ? gr.items.length : 0, cnt = gr.items ? gr.items.filter(Boolean).length : 0;
       var txt = !a ? '(ไม่ได้ตอบ)' : mc ? q.c[a.c] || '' : q.type === 'fill' ? a.c.join(' ')
         : q.p.map(function (x, i) { return x.l + '→' + (q.p[q.perm[a.c[i]]] || {}).r; }).join(' | ');
-      store.append('answers', [[new Date(now), r.pin, r.title, sp.i + 1, q.q, p.n, txt, gr.ok ? 'ถูก' : !mc && cnt ? 'ถูกบางส่วน ' + cnt + '/' + nIt : 'ผิด',
-        a ? Math.round(ms / 100) / 10 : '', g, sp.s, p.f || '']]);
+      var sg = q.st >= 0 && r.stages && r.stages[q.st] ? r.stages[q.st].n : '';
+      store.append('answers', [[new Date(now), r.pin, r.title, gi + 1, q.q, p.n, txt, gr.ok ? 'ถูก' : !mc && cnt ? 'ถูกบางส่วน ' + cnt + '/' + nIt : 'ผิด',
+        a ? Math.round(ms / 100) / 10 : '', g, sp.s, p.f || '', sg]]);
       var res = resultOf(q, { ok: gr.ok, g: g, ch: a ? a.c : -1, frac: gr.frac, items: gr.items });
-      sp.i++; sp.qs = 0; if (sp.i >= r.qs.length) sp.done = true;
+      P.i++; P.qs = 0; if (P.i >= L.length) P.done = true;
       store.put(k, sp);
       var rk = selfRank(store, r, pid);
-      return { result: res, score: sp.s, correct: sp.c, streak: sp.st, idx: sp.i - 1, total: r.qs.length, done: sp.done, rank: rk.rank, players: rk.players };
+      return { result: res, score: sp.s, correct: sp.c, streak: sp.st, idx: gi, pos: P.i - 1, n: L.length, total: L.length, done: P.done, rank: rk.rank, players: rk.players };
     });
   }
 
@@ -358,7 +411,12 @@ var CQ = (function () {
     var out = { phase: r.phase, idx: r.idx, total: r.qs.length, ver: r.ver, title: r.title, theme: r.phase === 'lobby' || r.phase === 'end' ? r.theme || '' : themeOf(r, r.idx),
       stage: sg ? { n: sg.n, ic: sg.ic, th: sg.th, no: cq.st + 1 } : null, name: me.n, score: me.s, players: r.order.length };
     out.mode = r.mode || 'live';
-    if (r.phase === 'self') { var sp0 = store.get(spKey(r.pin, pid)) || {}; out.me = { i: sp0.i || 0, s: sp0.s || 0, c: sp0.c || 0, done: !!sp0.done }; out.score = sp0.s || 0; out.theme = r.theme || ''; return out; }
+    if (r.phase === 'self') {
+      var sp0 = spLoad(store, r, pid), A0 = sp0.P.a || {};
+      out.me = { i: A0.i || 0, s: sp0.s, c: sp0.c, done: !!A0.done, cur: sp0.cur };
+      if (r.mode === 'station') { out.stations = stationList(r, sp0); out.rotate = !!r.rotate; }
+      out.score = sp0.s; out.theme = r.theme || ''; return out;
+    }
     if (r.phase === 'question') {
       var q = r.qs[r.idx];
       out.q = phoneQ(q);
@@ -377,6 +435,6 @@ var CQ = (function () {
   }
 
   return { createRoom: createRoom, next: next, reveal: reveal, showBoard: showBoard, end: end, kick: kick,
-    hostPoll: hostPoll, join: join, answer: answer, sQuestion: sQuestion, sAnswer: sAnswer, react: react, EMOJI: EMOJI, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
+    hostPoll: hostPoll, join: join, answer: answer, sQuestion: sQuestion, sAnswer: sAnswer, sStart: sStart, react: react, EMOJI: EMOJI, playerPoll: playerPoll, cleanQuestions: cleanQuestions };
 })();
 if (typeof module !== 'undefined') module.exports = CQ;
