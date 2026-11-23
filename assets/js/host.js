@@ -26,93 +26,125 @@ const TIMES = [5, 10, 15, 20, 30, 45, 60, 90];
 const save = () => LSset('set', SET);
 const estMin = () => Math.max(1, Math.round(SET.questions.reduce((a, q) => a + (Number(q.t) || 20) + 20, 0) / 60));
 
+const ICON = {
+  up: '<svg viewBox="0 0 24 24"><path d="M12 5l-7 7h4.5v7h5v-7H19z"/></svg>',
+  down: '<svg viewBox="0 0 24 24"><path d="M12 19l7-7h-4.5V5h-5v7H5z"/></svg>',
+  dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none"/></svg>',
+  del: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none"/></svg>',
+};
+const THEME_LABEL = { auto: 'อัตโนมัติตามชื่อกิจกรรม', space: 'อวกาศ', nature: 'ธรรมชาติ', ocean: 'ใต้ทะเล', lab: 'ห้องทดลอง', math: 'คณิตคิดสนุก', class: 'ห้องเรียน' };
+const THEME_ART = { auto: '✨', space: '🪐', nature: '🌿', ocean: '🐠', lab: '🧪', math: '🔢', class: '✏️' };
+const QUICK_T = [10, 20, 30, 45];
+
 function showSetup() {
   stopPoll(); music.stop(); $('#phaseChip').hidden = true;
+  const cur = SET.theme || 'auto';
   view.innerHTML = `
-  <div class="setup">
-    <aside class="card side">
-      <div class="hero-mascot">${MASCOT}</div>
-      <h1>เตรียมภารกิจ<br>ของห้องเรียน</h1>
-      <div><label class="label" for="iTitle">ชื่อกิจกรรม</label>
-        <input class="input" id="iTitle" maxlength="80" value="${esc(SET.title)}" style="font-size:17px"></div>
-      <div><label class="label" for="selTheme">ฉากและเอฟเฟกต์</label>
-        <select class="input" id="selTheme" style="font-size:16px;padding:9px 12px">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}" ${(SET.theme || 'auto') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-      <p class="chip" id="sum"></p>
-      ${DEMO ? '' : `<div><label class="label" for="iKey">รหัสครู (HOST_KEY)</label><input class="input" id="iKey" type="password" value="${esc(KEY)}" style="font-size:17px" autocomplete="current-password"></div>`}
-      <button class="btn go big" id="bCreate">สร้างห้องเกม 🚀</button>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" id="bImport">📋 วางจาก Excel</button>
-        <button class="btn sm" id="bSample">ชุดตัวอย่าง</button>
-        <button class="btn sm ghost" id="bClear">ล้างทั้งหมด</button>
+  <div class="setup ed">
+    <aside class="ed-side">
+      <div class="ed-hero"><div class="ed-hero-m">${MASCOT}</div>
+        <div><small>ClassQuest</small><h1>เตรียมภารกิจ<br>ของห้องเรียน</h1></div></div>
+      <div class="ed-body">
+        <label class="ed-lbl" for="iTitle">ชื่อกิจกรรม</label>
+        <input class="ed-in" id="iTitle" maxlength="80" value="${esc(SET.title)}" placeholder="เช่น วิทยาศาสตร์ ป.5 · ระบบสุริยะ">
+        <p class="ed-lbl">ฉากและเอฟเฟกต์</p>
+        <div class="themes-pick">${Object.entries(THEMES).map(([k, v]) => `<button type="button" class="tp ${cur === k ? 'on' : ''}" data-theme="${k}">
+          <span class="tp-art tp-${k}">${THEME_ART[k]}</span><span>${THEME_LABEL[k]}${k === 'auto' ? `<small id="autoTh"></small>` : ''}</span></button>`).join('')}</div>
+        <div class="stats"><div><b id="stQ">0</b><small>ข้อ</small></div><div><b id="stM">0</b><small>นาที (ประมาณ)</small></div><div><b id="stR">0</b><small>พร้อมเล่น</small></div></div>
+        ${DEMO ? '' : `<label class="ed-lbl" for="iKey">รหัสครู (HOST_KEY)</label><input class="ed-in" id="iKey" type="password" value="${esc(KEY)}" autocomplete="current-password">`}
+        <button class="ed-go" id="bCreate"><span>สร้างห้องเกม</span><i>🚀</i></button>
+        <div class="ed-acts">
+          <button class="ed-ghost" id="bImport">📋 วางจาก Excel</button>
+          <button class="ed-ghost" id="bSample">✨ ชุดตัวอย่าง</button>
+          <button class="ed-ghost danger" id="bClear">🗑 ล้างทั้งหมด</button>
+        </div>
+        <p class="ed-tip"><kbd>Space</kbd> ขั้นต่อไป · <kbd>F</kbd> เต็มจอ · <kbd>M</kbd> เสียง · ใช้รีโมตเลื่อนสไลด์ได้</p>
       </div>
-      <p class="muted sarabun" style="font-size:14px;margin:0">ระหว่างเล่นกด <b>Space</b> หรือปุ่มเลื่อนสไลด์ (รีโมต) เพื่อไปขั้นต่อไป · <b>F</b> เต็มจอ · <b>M</b> ปิดเสียง</p>
     </aside>
     <section>
       <div class="qlist" id="qlist"></div>
-      <div class="add-q" id="bAdd" style="margin-top:16px">＋ เพิ่มคำถาม</div>
+      <button class="ed-add" id="bAdd"><span>＋</span>เพิ่มคำถาม</button>
     </section>
   </div>`;
   renderList();
-  const preview = () => backdrop(themeFor(SET.theme, SET.title));
+  const preview = () => { const th = themeFor(SET.theme, SET.title); backdrop(th); const a = $('#autoTh'); if (a) a.textContent = 'ตอนนี้: ' + THEME_LABEL[themeFor('auto', SET.title)]; };
   preview();
   $('#iTitle').addEventListener('input', (e) => { SET.title = e.target.value; save(); preview(); });
-  $('#selTheme').addEventListener('change', (e) => { SET.theme = e.target.value; save(); preview(); });
-  $('#bAdd').onclick = () => { SET.questions.push({ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }); save(); renderList(); $('#qlist').lastElementChild.querySelector('textarea').focus(); };
+  $$('.tp').forEach((b) => b.addEventListener('click', () => { SET.theme = b.dataset.theme; save(); $$('.tp').forEach((x) => x.classList.toggle('on', x === b)); preview(); }));
+  $('#bAdd').onclick = () => { SET.questions.push({ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }); save(); renderList(); const c = $('#qlist').lastElementChild; c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.querySelector('textarea').focus(); };
   $('#bSample').onclick = () => { if (confirm('แทนที่ข้อคำถามทั้งหมดด้วยชุดตัวอย่าง?')) { SET = clone(SAMPLE); save(); showSetup(); } };
   $('#bClear').onclick = () => { if (confirm('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
   $('#bImport').onclick = () => { $('#mImport').hidden = false; $('#taImport').focus(); };
   $('#bCreate').onclick = createRoom;
 }
 
-function renderList() {
-  $('#sum').textContent = `${SET.questions.length} ข้อ · ใช้เวลาประมาณ ${estMin()} นาที`;
-  $('#qlist').innerHTML = SET.questions.map((q, i) => {
-    const tf = q.c.length === 2;
-    return `<article class="card qed" data-i="${i}">
-      <div class="qed-head"><span class="qed-no">${i + 1}</span>
-        <select data-k="type" title="ชนิดคำถาม"><option value="4" ${tf ? '' : 'selected'}>4 ตัวเลือก</option><option value="2" ${tf ? 'selected' : ''}>ถูก / ผิด</option></select>
-        <select data-k="t" title="เวลา">${TIMES.map((t) => `<option value="${t}" ${Number(q.t) === t ? 'selected' : ''}>⏱ ${t} วินาที</option>`).join('')}</select>
-        <span class="sp"></span>
-        <button class="mini" data-act="up" title="เลื่อนขึ้น">▲</button><button class="mini" data-act="down" title="เลื่อนลง">▼</button>
-        <button class="mini" data-act="dup" title="ทำซ้ำ">⧉</button><button class="mini" data-act="del" title="ลบ">✕</button>
-      </div>
-      <textarea data-k="q" rows="2" placeholder="พิมพ์คำถาม…">${esc(q.q)}</textarea>
-      <div class="opts">${q.c.map((c, j) => `<div class="opt o${j} ${q.a === j ? 'right' : ''}"><span class="sw">${shape(j)}</span>
-        <input type="text" data-k="c" data-j="${j}" value="${esc(c)}" placeholder="ตัวเลือกที่ ${j + 1}" ${tf ? 'readonly' : ''}>
-        <label><input type="radio" name="a${i}" data-k="a" value="${j}" ${q.a === j ? 'checked' : ''}>ถูก</label></div>`).join('')}</div>
-      <input class="x" data-k="x" value="${esc(q.x || '')}" placeholder="💡 คำอธิบายหลังเฉลย (ไม่บังคับ) — ขึ้นจอและมือถือนักเรียน">
-    </article>`;
-  }).join('');
+const ready = (q) => q.q.trim() && q.c.filter((c) => c.trim()).length === q.c.length && q.a >= 0 && q.a < q.c.length;
+function updStats() {
+  if (!$('#stQ')) return;
+  $('#stQ').textContent = SET.questions.length; $('#stM').textContent = estMin();
+  $('#stR').textContent = `${SET.questions.filter(ready).length}/${SET.questions.length}`;
+  $$('.qed').forEach((card) => { const ok = ready(SET.questions[+card.dataset.i]); card.classList.toggle('done', !!ok);
+    const s = card.querySelector('.qstate'); if (s) s.textContent = ok ? '✓ พร้อม' : 'ยังไม่ครบ'; });
 }
 
-// แก้ไขแบบ delegation (ไม่ต้อง render ใหม่ทุกตัวอักษร)
+function renderList() {
+  $('#qlist').innerHTML = SET.questions.map((q, i) => {
+    const tf = q.c.length === 2, t = Number(q.t) || 20;
+    return `<article class="qed" data-i="${i}" style="--acc:var(--c${i % 4});--d:${Math.min(i, 8) * 0.04}s">
+      <header class="qed-h">
+        <span class="qed-no"><small>ข้อ</small>${i + 1}</span>
+        <div class="seg" role="group" aria-label="ชนิดคำถาม">
+          <button type="button" data-type="4" class="${tf ? '' : 'on'}">4 ตัวเลือก</button><button type="button" data-type="2" class="${tf ? 'on' : ''}">ถูก / ผิด</button></div>
+        <div class="seg time" role="group" aria-label="เวลา">${QUICK_T.map((x) => `<button type="button" data-time="${x}" class="${t === x ? 'on' : ''}">${x}s</button>`).join('')}
+          <select data-k="t" title="เวลาอื่น" class="${QUICK_T.includes(t) ? '' : 'on'}">${QUICK_T.includes(t) ? '<option selected disabled>อื่น ๆ</option>' : ''}${TIMES.map((x) => `<option value="${x}" ${t === x && !QUICK_T.includes(t) ? 'selected' : ''}>${x} วิ</option>`).join('')}</select></div>
+        <span class="qstate"></span>
+        <div class="tools">${['up', 'down', 'dup', 'del'].map((a) => `<button type="button" data-act="${a}" title="${{ up: 'เลื่อนขึ้น', down: 'เลื่อนลง', dup: 'ทำซ้ำ', del: 'ลบ' }[a]}" class="${a}">${ICON[a]}</button>`).join('')}</div>
+      </header>
+      <textarea data-k="q" rows="1" maxlength="300" placeholder="พิมพ์คำถามที่นี่…">${esc(q.q)}</textarea>
+      <div class="opts">${q.c.map((c, j) => `<div class="opt o${j} ${q.a === j ? 'right' : ''}">
+        <button type="button" class="mark" data-correct="${j}" title="ตั้งเป็นคำตอบที่ถูก">${shape(j)}</button>
+        <input type="text" data-k="c" data-j="${j}" value="${esc(c)}" placeholder="ตัวเลือกที่ ${j + 1}" maxlength="120" ${tf ? 'readonly' : ''}>
+        <button type="button" class="okpill" data-correct="${j}">${q.a === j ? '✓ คำตอบที่ถูก' : 'ตั้งเป็นคำตอบ'}</button></div>`).join('')}</div>
+      <label class="xpl"><span>💡</span><input data-k="x" value="${esc(q.x || '')}" maxlength="200" placeholder="คำอธิบายหลังเฉลย (ไม่บังคับ) — ขึ้นทั้งจอครูและมือถือนักเรียน"></label>
+    </article>`;
+  }).join('');
+  $$('.qed textarea').forEach(autosize);
+  updStats();
+}
+function autosize(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+
+// แก้ไขแบบ delegation
 document.addEventListener('input', (e) => {
   const card = e.target.closest('.qed'); if (!card) return;
   const q = SET.questions[+card.dataset.i], k = e.target.dataset.k;
-  if (k === 'q') q.q = e.target.value;
+  if (k === 'q') { q.q = e.target.value; autosize(e.target); }
   if (k === 'x') q.x = e.target.value;
   if (k === 'c') q.c[+e.target.dataset.j] = e.target.value;
-  save();
+  save(); updStats();
 });
 document.addEventListener('change', (e) => {
-  const card = e.target.closest('.qed'); if (!card) return;
-  const q = SET.questions[+card.dataset.i], k = e.target.dataset.k;
-  if (k === 't') q.t = Number(e.target.value);
-  if (k === 'a') { q.a = Number(e.target.value); $$('.opt', card).forEach((o, j) => o.classList.toggle('right', j === q.a)); }
-  if (k === 'type') {
-    if (e.target.value === '2') { q._keep = q.c.slice(); q.c = ['ถูก', 'ผิด']; q.a = Math.min(q.a, 1); }
-    else { q.c = q._keep && q._keep.length === 4 ? q._keep : ['', '', '', '']; q.a = 0; }
-    renderList();
-  }
-  save(); if ($('#sum')) $('#sum').textContent = `${SET.questions.length} ข้อ · ใช้เวลาประมาณ ${estMin()} นาที`;
+  const card = e.target.closest('.qed'); if (!card || e.target.dataset.k !== 't') return;
+  SET.questions[+card.dataset.i].t = Number(e.target.value); save(); renderList();
 });
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-act]'); if (!b) return;
-  const i = +b.closest('.qed').dataset.i, L = SET.questions;
-  if (b.dataset.act === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
-  if (b.dataset.act === 'down' && i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]];
-  if (b.dataset.act === 'dup') L.splice(i + 1, 0, clone(L[i]));
-  if (b.dataset.act === 'del') { if (L.length === 1) return toast('ต้องมีอย่างน้อย 1 ข้อ'); if (!confirm(`ลบข้อ ${i + 1}?`)) return; L.splice(i, 1); }
+  const card = e.target.closest('.qed'); if (!card) return;
+  const i = +card.dataset.i, L = SET.questions, q = L[i];
+  const tb = e.target.closest('[data-type]'), tm = e.target.closest('[data-time]'), cr = e.target.closest('[data-correct]'), b = e.target.closest('[data-act]');
+  if (tb) {
+    if ((tb.dataset.type === '2') === (q.c.length === 2)) return;
+    if (tb.dataset.type === '2') { q._keep = q.c.slice(); q._keepA = q.a; q.c = ['ถูก', 'ผิด']; q.a = 0; }
+    else { const k = q._keep && q._keep.length === 4; q.c = k ? q._keep : ['', '', '', '']; q.a = k ? q._keepA || 0 : 0; }
+  } else if (tm) q.t = Number(tm.dataset.time);
+  else if (cr) {
+    q.a = Number(cr.dataset.correct);
+    $$('.opt', card).forEach((o, j) => { o.classList.toggle('right', j === q.a); o.querySelector('.okpill').textContent = j === q.a ? '✓ คำตอบที่ถูก' : 'ตั้งเป็นคำตอบ'; });
+    sound.pop(); save(); updStats(); return;
+  } else if (b) {
+    if (b.dataset.act === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
+    if (b.dataset.act === 'down' && i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]];
+    if (b.dataset.act === 'dup') L.splice(i + 1, 0, clone(L[i]));
+    if (b.dataset.act === 'del') { if (L.length === 1) return toast('ต้องมีอย่างน้อย 1 ข้อ'); if (!confirm(`ลบข้อ ${i + 1}?`)) return; L.splice(i, 1); }
+  } else return;
   save(); renderList();
 });
 
