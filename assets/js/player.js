@@ -168,7 +168,31 @@ async function sendX(choice, idx, icon) {
   try { const r = await call('answer', { pin: me.pin, pid: me.pid, idx, choice }); if (r.late) toast('หมดเวลาแล้ว ไม่ทันข้อนี้ 😅'); }
   catch (err) { toast(err.message); lastKey = ''; }
 }
+function vFillGen(s) {
+  const q = s.q, rows = q.lay.length / q.cw, A = Array(q.n).fill(''), hasH1 = (q.h1 || []).some(Boolean), hasH2 = (q.h2 || []).some(Boolean);
+  let sel = q.opts[0], bi = 0;
+  deadline = (s._t || performance.now()) + s.left;
+  view.innerHTML = `${qHead(s, '📋')}
+    <div class="card pq-text rise">${wordsHTML(q.q, esc)}</div>${imgHTML(q)}
+    <div class="ggrid-p"><table>${hasH1 ? `<tr>${hasH2 ? '<th></th>' : ''}${q.h1.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>` : ''}
+      ${Array.from({ length: rows }, (_, r) => `<tr>${hasH2 ? `<th>${esc(q.h2[r] || '')}</th>` : ''}${Array.from({ length: q.cw }, (_, c) => {
+        const v = q.lay[r * q.cw + c]; return v !== null ? `<td class="given">${esc(v)}</td>` : `<td><button class="fs cell word" data-kind="c" data-i="${bi++}"></button></td>`; }).join('')}</tr>`).join('')}</table></div>
+    <div class="palette words"><small>🃏 แตะบัตรคำ แล้วแตะช่องที่จะเติม</small>${q.opts.map((o) => `<button class="pc-chip word" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>
+    <div class="fbtns"><button class="btn ghost sm" id="fClear">ล้าง</button><button class="btn go" id="fSend" disabled>ส่งคำตอบ ✔</button></div>`;
+  const paint = () => {
+    $$('.pc-chip').forEach((b) => b.classList.toggle('on', b.dataset.v === sel));
+    $$('.fs').forEach((b) => { const v = A[+b.dataset.i]; b.textContent = v || '?'; b.classList.toggle('filled', !!v); });
+    $('#fSend').disabled = !A.every(Boolean);
+  };
+  $$('.pc-chip').forEach((b) => b.addEventListener('click', () => { sel = b.dataset.v; paint(); if (navigator.vibrate) navigator.vibrate(8); }));
+  $$('.fs').forEach((b) => b.addEventListener('click', () => { const i = +b.dataset.i; A[i] = A[i] === sel ? '' : sel; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); paint(); }));
+  $('#fClear').onclick = () => { A.fill(''); paint(); };
+  $('#fSend').onclick = () => sendX(A.slice(), s.idx, '📋');
+  paint();
+  phoneTimer(s, () => { $$('.fs,.pc-chip,#fSend').forEach((b) => (b.disabled = true)); });
+}
 function vFill(s) {
+  if (s.q.gen) return vFillGen(s);
   const q = s.q, n1 = q.cols, n2 = q.rows, hx = q.hx;
   const A = { h1: Array(n1).fill(''), h2: Array(n2).fill(''), c: Array(n1 * n2).fill('') };
   const alle = q.opts.filter((o) => o.length === 1), geno = q.opts.filter((o) => o.length === 2);
@@ -231,6 +255,15 @@ function vMatch(s) {
   phoneTimer(s, () => { $$('.mi,#mSend').forEach((b) => (b.disabled = true)); });
 }
 function detailHTML(r) {
+  if (r.type === 'fill' && r.gen && r.key) {
+    const mine = Array.isArray(r.choice) ? r.choice : [], it = r.items || [], rows = r.lay.length / r.cw, hasH1 = (r.h1 || []).some(Boolean), hasH2 = (r.h2 || []).some(Boolean);
+    let bi = 0;
+    return `<div class="card rdet"><b>ตารางของฉัน</b><table class="rgrid gen">${hasH1 ? `<tr>${hasH2 ? '<th></th>' : ''}${r.h1.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>` : ''}
+      ${Array.from({ length: rows }, (_, rr) => `<tr>${hasH2 ? `<th>${esc(r.h2[rr] || '')}</th>` : ''}${Array.from({ length: r.cw }, (_, c) => { const v = r.lay[rr * r.cw + c];
+        if (v !== null) return `<td class="gv">${esc(v)}</td>`; const i = bi++, ok = it[i];
+        return `<td class="${ok ? 'y' : 'n'}">${esc(mine[i] || '–')}${ok ? '' : `<small>${esc(r.key[i])}</small>`}</td>`; }).join('')}</tr>`).join('')}</table>
+      <small class="muted">ช่องแดง = ผิด (ตัวเล็กคือคำตอบที่ถูก)</small></div>`;
+  }
   if (r.type === 'fill' && r.key) {
     const n1 = r.cols, n2 = r.rows, off = r.hx ? n1 + n2 : 0, mine = Array.isArray(r.choice) ? r.choice : [], it = r.items || [];
     const cell = (i) => { const ok = it[i], v = mine[i] || '–'; return `<td class="${ok ? 'y' : 'n'}">${esc(v)}${ok ? '' : `<small>${esc(r.key[i])}</small>`}</td>`; };

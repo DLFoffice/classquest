@@ -280,3 +280,46 @@
 .std-btns{flex:0 0 auto}
 .std-cols{align-items:start}
 .stcol{max-height:calc(100vh - 300px)}
+
+/* ===== ตารางทั่วไป ===== */
+.fk.seg{margin-top:12px}
+.ge{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.ge-ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px;color:#5A5E7A}
+.ge-ctl button{width:28px;height:28px;border-radius:8px;border:1.5px solid #E6E7F0;background:#fff;cursor:pointer;font-size:15px;color:var(--ink)}
+.ge-ctl button:hover{background:#F3F0FF}
+.ge-ctl b{min-width:18px;text-align:center;color:var(--ink)}
+.ge-ctl span{margin-left:6px}.ge-ctl .gs{padding:4px 10px;margin-left:6px}.ge-ctl .pchk{margin-left:auto}
+.ge-wrap{overflow-x:auto}
+.ge-t{border-collapse:separate;border-spacing:6px;width:100%}
+.ge-t th input{width:100%;border:0;background:#EEF1FF;border-radius:10px;padding:8px 10px;font-weight:600;font-size:14.5px;color:#3E2BB8;outline:none;text-align:center;font-family:'Mitr'}
+.ge-t th.ge-corner{width:20px}
+.ge-t td{background:#FAFAFD;border:1.5px solid #ECECF3;border-radius:12px;padding:6px;vertical-align:top;min-width:120px}
+.ge-t td.blank{background:#FFF8E1;border:2px dashed #F2B705}
+.ge-t td input{width:100%;border:0;background:transparent;outline:none;font-size:15px;font-family:'Sarabun';font-weight:600;color:var(--ink);padding:4px 2px}
+.ge-t td.blank input{color:#9A6A00}
+.ge-t td button{margin-top:2px;border:0;border-radius:99px;font-size:11.5px;padding:2px 8px;cursor:pointer;background:#ECECF3;color:#5A5E7A}
+.ge-t td.blank button{background:#F2B705;color:#fff}
+.ge-extra{margin:0}
+.ggrid-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.ggrid{border-collapse:separate;border-spacing:8px;background:#fff;border:3px solid var(--ink);border-radius:22px;box-shadow:var(--sh);padding:6px;animation:pop .5s .1s var(--spring) both}
+.ggrid th{background:#EEF1FF;color:#3E2BB8;border-radius:12px;padding:10px 16px;font-size:clamp(18px,1.7vw,26px);font-weight:600}
+.ggrid td{min-width:150px;padding:14px 18px;border-radius:14px;text-align:center;font-family:'Sarabun';font-weight:700;font-size:clamp(18px,1.8vw,28px);position:relative;color:var(--ink)}
+.ggrid td.given{background:#F7F7FB}
+.ggrid td.blank{background:#FFF8E1;border:3px dashed #F2B705;color:#C9A43A}
+.ggrid td.blank.fill{border-style:solid;border-color:#22B07D;background:#E9F9F2;color:#156F4C;animation:cellpop .5s var(--spring) both;animation-delay:calc(var(--i) * .25s + .4s)}
+.ggrid td.blank.fill b{animation:fadein2 .3s both;animation-delay:calc(var(--i) * .25s + .5s);opacity:0}
+.gbank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:1000px}
+.gbank small{width:100%;text-align:center;opacity:.85}
+.gbank span{background:#fff;color:var(--ink);border:2.5px solid var(--ink);border-radius:12px;padding:5px 14px;font-family:'Sarabun';font-weight:700;font-size:20px;box-shadow:3px 3px 0 var(--ink)}
+.ggrid-p{overflow-x:auto}
+.ggrid-p table{border-collapse:separate;border-spacing:5px;background:rgba(255,255,255,.96);border-radius:18px;padding:5px;margin:0 auto;box-shadow:0 8px 20px -10px rgba(0,0,0,.5)}
+.ggrid-p th{background:#EEF1FF;color:#3E2BB8;border-radius:10px;padding:6px 8px;font-size:14px;font-family:'Mitr'}
+.ggrid-p td{padding:0;min-width:80px}
+.ggrid-p td.given{background:#F7F7FB;border-radius:12px;padding:8px;text-align:center;font-family:'Sarabun';font-weight:700;font-size:15px;color:var(--ink)}
+.fs.word{min-height:52px;font-size:15px;font-family:'Sarabun';font-weight:700;line-height:1.25;padding:4px 6px;background:#FFF8E1;border-color:#F2B705;color:#B08300}
+.fs.word.filled{background:#E8F1FF;border-color:#2E9BEF;color:var(--ink)}
+.palette.words .pc-chip.word{min-width:0;height:auto;min-height:42px;padding:6px 12px;font-family:'Sarabun';font-size:16px;font-weight:700;background:#fff;color:var(--ink)}
+.rgrid.gen td,.rgrid.gen th{font-family:'Sarabun';font-size:14px;padding:4px 6px;height:auto}
+.rgrid.gen td.gv{background:#F7F7FB;color:#4A4E69}
+/* แก้กรอบสรุปใต้ตารางตัวอย่างยืดผิดรูป */
+.ppgrid .pun-sum div,.ppgrid .pun-sum>div{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;background:none;border:0;padding:0;min-height:0;height:auto;box-shadow:none;border-radius:0}

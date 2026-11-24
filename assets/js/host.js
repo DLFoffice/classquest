@@ -342,6 +342,7 @@ function renderStages() {
 const typeOf = (q) => q.type === 'fill' || q.type === 'match' ? q.type : q.c && q.c.length === 2 ? 'tf' : 'mc';
 const ready = (q) => {
   if (!q.q || !q.q.trim()) return false;
+  if (q.type === 'fill' && q.fk === 'grid') return !/⚠/.test(gridChk(q));
   if (q.type === 'fill') return q.g && !buildFill(q.g, q.hx).error;
   if (q.type === 'match') return (q.p || []).filter((x) => x.l.trim() && x.r.trim()).length >= 2 && (q.p || []).every((x) => x.l.trim() && x.r.trim());
   return q.c.filter((c) => c.trim()).length === q.c.length && q.a >= 0 && q.a < q.c.length;
@@ -353,14 +354,40 @@ function updStats() {
   $$('.qed').forEach((card) => { const ok = ready(SET.questions[+card.dataset.i]); card.classList.toggle('done', !!ok);
     const s = card.querySelector('.qstate'); if (s) s.textContent = ok ? '✓ พร้อม' : 'ยังไม่ครบ'; });
 }
-const TYPES = [['mc', '4 ตัวเลือก'], ['tf', 'ถูก / ผิด'], ['fill', '🧬 เติมตาราง'], ['match', '🔗 จับคู่']];
+const TYPES = [['mc', '4 ตัวเลือก'], ['tf', 'ถูก / ผิด'], ['fill', '📋 เติมตาราง'], ['match', '🔗 จับคู่']];
 const parentsPreview = (q) => { const b = q.g ? buildFill(q.g, q.hx) : null; if (!b || b.error) return '';
   return `<div class="ppv">${[0, 1].map((i) => `<div class="pp"><div class="pfox">${foxSVG(b.fur[i])}</div><span>${esc((q.pl || [])[i] || '')}</span></div>`).join('<b>×</b>')}
     <div class="ppgrid">${punnettHTML(b.P, { filled: true, compact: true })}</div></div>`; };
 
+const newGrid = () => ({ cols: ['', ''], rows: ['', ''], useRows: false, cells: [[{ v: '', b: false }, { v: '', b: true }], [{ v: '', b: false }, { v: '', b: true }]], extra: '' });
+function gridOf(q) { if (!q.grid) q.grid = newGrid(); return q.grid; }
+function gridBuild(G0) {
+  const lay = [], k = [];
+  G0.cells.forEach((r) => r.forEach((c) => { if (c.b) { lay.push(null); k.push(String(c.v || '').trim()); } else lay.push(String(c.v || '').trim()); }));
+  const extra = String(G0.extra || '').split(/[,，\n]/).map((x) => x.trim()).filter(Boolean);
+  const opts = [...new Set([...k.filter(Boolean), ...extra])].sort(() => Math.random() - 0.5);
+  return { lay, k, cw: G0.cols.length, h1: G0.cols.map((x) => String(x || '').trim()), h2: G0.useRows ? G0.rows.map((x) => String(x || '').trim()) : [], opts };
+}
+function gridChk(q) { const b = gridBuild(gridOf(q)), n = b.k.length, miss = b.k.filter((x) => !x).length;
+  return !n ? '⚠ ยังไม่มีช่องให้เติม — กด ✏️ ที่ช่องที่ต้องการ' : miss ? `⚠ ใส่คำตอบให้ครบ (ขาด ${miss} ช่อง)` : `✓ ให้เติม ${n} ช่อง · บัตรคำ ${b.opts.length} ใบ`; }
+function gridEditorHTML(q) {
+  const G0 = gridOf(q), cw = G0.cols.length;
+  return `<div class="ge">
+    <div class="ge-ctl"><span>คอลัมน์</span><button type="button" data-gdel="col">−</button><b>${cw}</b><button type="button" data-gadd="col">＋</button>
+      <span>แถว</span><button type="button" data-gdel="row">−</button><b>${G0.cells.length}</b><button type="button" data-gadd="row">＋</button>
+      <label class="gs"><input type="checkbox" data-k="guse" ${G0.useRows ? 'checked' : ''}>มีหัวแถว</label><em class="pchk ${/⚠/.test(gridChk(q)) ? 'bad' : ''}">${gridChk(q)}</em></div>
+    <div class="ge-wrap"><table class="ge-t"><tr>${G0.useRows ? '<th class="ge-corner"></th>' : ''}${G0.cols.map((c, j) => `<th><input data-k="gcol" data-j="${j}" value="${esc(c)}" placeholder="หัวคอลัมน์ ${j + 1}"></th>`).join('')}</tr>
+      ${G0.cells.map((r, i) => `<tr>${G0.useRows ? `<th><input data-k="grow" data-j="${i}" value="${esc(G0.rows[i] || '')}" placeholder="หัวแถว ${i + 1}"></th>` : ''}
+        ${r.map((c, j) => `<td class="${c.b ? 'blank' : ''}"><input data-k="gcell" data-r="${i}" data-c="${j}" value="${esc(c.v)}" placeholder="${c.b ? 'คำตอบ' : 'ข้อความที่โจทย์ให้'}">
+          <button type="button" data-gtog="${i},${j}" title="สลับ: ให้นักเรียนเติม / โจทย์ให้">${c.b ? '✏️ ให้เติม' : '🔒 โจทย์ให้'}</button></td>`).join('')}</tr>`).join('')}</table></div>
+    <label class="mj-in2 ge-extra"><span>🃏</span><input data-k="gextra" value="${esc(G0.extra || '')}" placeholder="ตัวเลือกหลอกในบัตรคำ (ไม่บังคับ) คั่นด้วยจุลภาค เช่น ทราย, หิน"></label>
+    <p class="phint">ช่อง ✏️ = นักเรียนต้องเติม (พิมพ์คำตอบที่ถูกไว้) · นักเรียนเลือกจากบัตรคำ = คำตอบทุกช่อง + ตัวเลือกหลอก (สลับลำดับให้)</p></div>`;
+}
+
 function bodyFor(q, i) {
   const ty = typeOf(q);
-  if (ty === 'fill') return `
+  if (ty === 'fill' && q.fk === 'grid') return `<div class="fk seg"><button type="button" data-fk="pun">🧬 ตารางพันนิตต์</button><button type="button" data-fk="grid" class="on">📋 ตารางทั่วไป</button></div>${gridEditorHTML(q)}`;
+  if (ty === 'fill') return `<div class="fk seg"><button type="button" data-fk="pun" class="on">🧬 ตารางพันนิตต์</button><button type="button" data-fk="grid">📋 ตารางทั่วไป</button></div>
       <div class="fl-row"><label class="pun-in"><span>🧬</span><input data-k="g" value="${esc(q.g || '')}" maxlength="60" placeholder="การผสม เช่น  Bb x bb | ขนเทา | ขนขาว"><em class="pchk">${fchk(q)}</em></label>
         <label class="gs" title="ขั้นสูง: นักเรียนต้องเติมเซลล์สืบพันธุ์ (หัวตาราง) เองด้วย"><input type="checkbox" data-k="hx" ${q.hx ? 'checked' : ''}>ให้เติมเซลล์สืบพันธุ์เองด้วย</label></div>
       <div class="fl-row two"><label class="mj-in2"><span>🦊</span><input data-k="pl" data-j="0" value="${esc((q.pl || [])[0] || '')}" maxlength="40" placeholder="ป้ายใต้ภาพพ่อ เช่น จ่าฝูง · Bb"></label>
@@ -421,6 +448,11 @@ document.addEventListener('input', (e) => {
   if (k === 'x') q.x = e.target.value;
   if (k === 'c') q.c[j] = e.target.value;
   if (k === 'pl') { q.pl = q.pl || ['', '']; q.pl[j] = e.target.value; const pv = $('#prev' + i); if (pv) pv.innerHTML = parentsPreview(q); }
+  if (k === 'gcol') gridOf(q).cols[j] = e.target.value;
+  if (k === 'grow') gridOf(q).rows[j] = e.target.value;
+  if (k === 'gcell') gridOf(q).cells[+e.target.dataset.r][+e.target.dataset.c].v = e.target.value;
+  if (k === 'gextra') gridOf(q).extra = e.target.value;
+  if (/^g(col|row|cell|extra)$/.test(k)) { const c = card.querySelector('.ge .pchk'); if (c) { c.textContent = gridChk(q); c.classList.toggle('bad', /⚠/.test(c.textContent)); } }
   if (k === 'pl2') q.p[j].l = e.target.value;
   if (k === 'pr2') q.p[j].r = e.target.value;
   if (k === 'g') {
@@ -434,6 +466,7 @@ document.addEventListener('change', (e) => {
   const card = e.target.closest('.qed'); if (!card) return;
   const q = SET.questions[+card.dataset.i];
   if (e.target.dataset.k === 'gs') { q.gs = e.target.checked; save(); return; }
+  if (e.target.dataset.k === 'guse') { gridOf(q).useRows = e.target.checked; save(); renderList(); return; }
   if (e.target.dataset.k === 'hx') { q.hx = e.target.checked; if (q.hx && (q.t || 0) < 90) q.t = 90; save(); renderList(); return; }
   if (e.target.dataset.k !== 't') return;
   q.t = Number(e.target.value); save(); renderList();
@@ -452,6 +485,17 @@ document.addEventListener('click', async (e) => {
   const i = +card.dataset.i, L = SET.questions, q = L[i];
   const tb = e.target.closest('[data-type]'), tm = e.target.closest('[data-time]'), cr = e.target.closest('[data-correct]'), b = e.target.closest('[data-act]');
   const sg = e.target.closest('[data-stage]'), pa = e.target.closest('[data-padd]'), pd = e.target.closest('[data-pdel]'), im = e.target.closest('[data-img]');
+  const fk = e.target.closest('[data-fk]'), gt = e.target.closest('[data-gtog]'), ga = e.target.closest('[data-gadd]'), gd = e.target.closest('[data-gdel]');
+  if (fk) { q.fk = fk.dataset.fk; if (q.fk === 'grid') gridOf(q); save(); return renderList(); }
+  if (gt) { const [r, c] = gt.dataset.gtog.split(',').map(Number), cell = gridOf(q).cells[r][c]; cell.b = !cell.b; save(); return renderList(); }
+  if (ga || gd) {
+    const G0 = gridOf(q), what = (ga || gd).dataset[ga ? 'gadd' : 'gdel'];
+    if (ga && what === 'col') { if (G0.cols.length >= 6) return toast('ได้สูงสุด 6 คอลัมน์'); G0.cols.push(''); G0.cells.forEach((r) => r.push({ v: '', b: !!(r[r.length - 1] || {}).b })); }
+    if (ga && what === 'row') { if (G0.cells.length >= 8) return toast('ได้สูงสุด 8 แถว'); G0.rows.push(''); const last = G0.cells[G0.cells.length - 1] || []; G0.cells.push(G0.cols.map((_, j) => ({ v: '', b: !!(last[j] || {}).b }))); }
+    if (gd && what === 'col') { if (G0.cols.length <= 1) return; G0.cols.pop(); G0.cells.forEach((r) => r.pop()); }
+    if (gd && what === 'row') { if (G0.cells.length <= 1) return; G0.rows.pop(); G0.cells.pop(); }
+    save(); return renderList();
+  }
   if (im) {
     if (im.dataset.img === 'pick') return pickImage(i);
     if (im.dataset.img === 'link') { const u = await askText('วางลิงก์ภาพ', '', { placeholder: 'https://…', icon: '🔗', text: 'ลิงก์ต้องขึ้นต้นด้วย https://', max: 800 }); if (!u) return; if (!/^https:\/\//.test(u.trim())) return toast('ลิงก์ต้องขึ้นต้นด้วย https://'); q.img = u.trim(); save(); renderList(); return; }
@@ -528,6 +572,11 @@ function payload() {
   return SET.questions.map((q, i) => {
     const st = ST.length ? (q.st >= 0 && q.st < ST.length ? q.st : 0) : -1, base = { q: q.q, t: q.t, x: q.x, st, img: q.img || '' };
     if (!DEMO && /^data:/.test(q.img || '')) throw new Error(`ข้อ ${i + 1} ภาพยังไม่ได้อัปโหลด ลองเลือกภาพใหม่อีกครั้ง`);
+    if (q.type === 'fill' && q.fk === 'grid') {
+      const gb = gridBuild(gridOf(q));
+      if (!gb.k.length || gb.k.some((x) => !x)) throw new Error(`ข้อ ${i + 1} ตารางยังไม่ครบ (ต้องมีช่องให้เติมและใส่คำตอบทุกช่อง)`);
+      return { ...base, type: 'fill', gen: true, ...gb };
+    }
     if (q.type === 'fill') {
       const b = buildFill(q.g, q.hx);
       if (b.error) throw new Error(`ข้อ ${i + 1} ${b.error}`);
@@ -856,7 +905,19 @@ async function goNext() {
 
 // ===================================================== ข้อแบบเติมตาราง / จับคู่ (จอครู)
 const pfox = (fur, label) => `<div class="pfox-card"><div class="pfox">${foxSVG(fur || '#fff')}</div><span>${esc(label || '')}</span></div>`;
+function genGridHTML(q, rev, g) {
+  const rows = q.lay.length / q.cw, n = g ? g.answered || 0 : 0, hasH1 = (q.h1 || []).some(Boolean), hasH2 = (q.h2 || []).some(Boolean);
+  let bi = 0;
+  return `<div class="ggrid-wrap"><table class="ggrid">${hasH1 ? `<tr>${hasH2 ? '<th></th>' : ''}${q.h1.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>` : ''}
+    ${Array.from({ length: rows }, (_, r) => `<tr>${hasH2 ? `<th>${esc(q.h2[r] || '')}</th>` : ''}${Array.from({ length: q.cw }, (_, c) => {
+      const v = q.lay[r * q.cw + c]; if (v !== null) return `<td class="given">${esc(v)}</td>`;
+      const i = bi++; if (!rev) return `<td class="blank"><span>?</span></td>`;
+      const p = n ? Math.round((((g.itemOk || [])[i] || 0) / n) * 100) : 0;
+      return `<td class="blank fill" style="--i:${i}"><b>${esc(q.k[i])}</b><em class="pcp ${p >= 50 ? 'hi' : 'lo'}">${p}%</em></td>`; }).join('')}</tr>`).join('')}</table>
+    ${rev ? '' : `<div class="gbank"><small>🃏 บัตรคำ</small>${q.opts.map((o) => `<span>${esc(o)}</span>`).join('')}</div>`}</div>`;
+}
 function fillHTML(q) {
+  if (q.gen) return genGridHTML(q, false, null);
   const P = parsePunnett(q.g);
   return `<div class="fillstage"><div class="parents">${pfox(q.fur[0], q.pl[0])}<b class="x">×</b>${pfox(q.fur[1], q.pl[1])}</div>
     <div class="bigpun ${q.hx ? 'hx' : ''}">${P && !P.error ? punnettHTML(P) : ''}</div></div>`;
@@ -893,7 +954,7 @@ function vQuestionX(g) {
   const q = g.q; deadline = (g._t || performance.now()) + g.left;
   view.innerHTML = `
     <div class="qtop"><span class="chip" style="font-size:18px">ข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML(g, passedOf(g))}</div>
-    <div class="qstage ${q.img ? 'has-img' : ''}"><div class="card qcard rise"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${himg(q)}${timerSVG(q)}</div>
+    <div class="qstage ${q.img ? 'has-img' : ''}"><div class="card qcard rise"><span class="qno">${q.type === 'fill' ? (q.gen ? '📋 เติมตาราง' : '🧬 เติมตาราง') : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span><span>${wordsHTML(q.q, esc)}</span></div>${himg(q)}${timerSVG(q)}</div>
     ${q.type === 'fill' ? fillHTML(q) : matchHTML(q, false, g)}
     <div class="qfoot"><div class="answered">ส่งแล้ว <b id="nAns">${g.answered}</b> / <span id="nAll">${g.players.length}</span> คน</div>
       <button class="btn sun big" id="bReveal">เฉลยเลย ✓</button></div>`;
@@ -908,19 +969,19 @@ function vRevealX(g) {
     <div class="qtop"><span class="chip" style="font-size:18px">เฉลยข้อ ${g.idx + 1} / ${g.total}</span>${stageChip(g)}${trailHTML({ ...g, trail: (g.trail || []).slice(0, g.idx) }, 0)}</div>
     <div class="qstage ${q.img ? 'has-img' : ''}"><div class="card qcard"><span class="qno">${q.type === 'fill' ? '🧬 เติมตาราง' : '🔗 จับคู่'} · ข้อ ${g.idx + 1}</span>${esc(q.q)}</div>${himg(q)}
       <div class="timer"><svg viewBox="0 0 130 130"><circle class="tr-bg" cx="65" cy="65" r="60"/></svg><b style="font-size:34px;line-height:1.1;text-align:center">${Math.round(avg * 100)}%<small style="display:block;font-size:15px;font-weight:400">ถูกเฉลี่ย</small></b></div></div>
-    ${q.type === 'fill' ? fillHTML(q) : matchHTML(q, true, g)}
+    ${q.type === 'fill' ? (q.gen ? genGridHTML(q, true, g) : fillHTML(q)) : matchHTML(q, true, g)}
     <div class="qfoot"><div class="revnote">
         <div class="card">✅ ถูกครบ <b>${g.dist[0] || 0}</b> คน</div><div class="card">🟡 ถูกบางส่วน <b>${g.dist[1] || 0}</b> คน</div>
         ${g.fastest ? `<div class="card">⚡ เร็วสุด: <b>${esc(g.fastest.name)}</b></div>` : ''}
         ${q.x ? `<div class="card xpl">💡 ${esc(q.x)}</div>` : ''}</div>
       <button class="btn vio big" id="bBoard">ดูอันดับ ▶</button></div>`;
-  if (q.type === 'fill') {
+  if (q.type === 'fill' && !q.gen) {
     const P = parsePunnett(q.g); $('.bigpun').innerHTML = punnettHTML(P, { filled: true });
     const off = q.hx ? q.h1.length + q.h2.length : 0, pct = (i) => (n ? Math.round((((g.itemOk || [])[i] || 0) / n) * 100) : 0);
     $$('.bigpun td.pc').forEach((td, i) => td.insertAdjacentHTML('beforeend', `<em class="pcp ${pct(off + i) >= 50 ? 'hi' : 'lo'}">${pct(off + i)}%</em>`));
     if (q.hx) $$('.bigpun th.gm').forEach((th, i) => th.insertAdjacentHTML('beforeend', `<em class="pcp ${pct(i) >= 50 ? 'hi' : 'lo'}">${pct(i)}%</em>`));
   }
-  setTimeout(() => sparkle($('.bigpun') || $('.matchstage'), 14), 900);
+  setTimeout(() => sparkle($('.bigpun') || $('.ggrid-wrap') || $('.matchstage'), 14), 900);
   const lines = !total ? 'เฉลยแล้ว!' : avg >= 0.8 ? 'ฮึ่ม… พวกเจ้าเก่งเกินคาด! 🦊' : avg >= 0.5 ? 'ไม่เลว! แต่ยังพลาดบางช่องนะ' : 'ยังไม่แม่นพอ… ดูเฉลยให้ดี ❄️';
   setTimeout(() => peek(M(), lines, avg >= 0.5 ? 'happy' : 'sad', 5200), 900);
   if (avg >= 0.8 && total) setTimeout(() => confetti(90), 700);

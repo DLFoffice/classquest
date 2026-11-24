@@ -11,13 +11,15 @@ var CQ = (function () {
     var o = phoneQ0(q); if (q.img) o.img = q.img; return o;
   }
   function phoneQ0(q) {
+    if (q.type === 'fill' && q.gen) return { type: 'fill', gen: true, q: q.q, t: q.t, lay: q.lay, cw: q.cw, h1: q.h1, h2: q.h2, opts: q.opts, n: q.k.length };
     if (q.type === 'fill') return { type: 'fill', q: q.q, t: q.t, hx: q.hx, h1: q.hx ? null : q.h1, h2: q.hx ? null : q.h2, cols: q.h1.length, rows: q.h2.length, opts: q.opts, pl: q.pl, fur: q.fur };
     if (q.type === 'match') return { type: 'match', q: q.q, t: q.t, L: q.p.map(function (x) { return x.l; }), R: q.perm.map(function (j) { return q.p[j].r; }) };
     return { type: 'mc', q: q.q, c: q.c, t: q.t };
   }
   function resultOf(q, res) {
     var out = { type: q.type || 'mc', ok: res.ok, gained: res.g, choice: res.ch, explain: q.x, frac: res.frac == null ? (res.ok ? 1 : 0) : res.frac, items: res.items || null };
-    if (q.type === 'fill') { out.key = q.k; out.cols = q.h1.length; out.rows = q.h2.length; out.hx = q.hx; out.h1 = q.h1; out.h2 = q.h2; }
+    if (q.type === 'fill' && q.gen) { out.key = q.k; out.gen = true; out.lay = q.lay; out.cw = q.cw; out.h1 = q.h1; out.h2 = q.h2; }
+    else if (q.type === 'fill') { out.key = q.k; out.cols = q.h1.length; out.rows = q.h2.length; out.hx = q.hx; out.h1 = q.h1; out.h2 = q.h2; }
     else if (q.type === 'match') out.pairs = q.p;
     else { out.answer = q.a; out.answerText = q.c[q.a]; }
     return out;
@@ -43,6 +45,15 @@ var CQ = (function () {
       if (!clip(q.q, 300)) throw err(no + 'ยังไม่มีคำถาม');
       var st = Number(q.st); st = st >= 0 && st < 8 ? Math.floor(st) : -1;
       var img = String(q.img || ''); img = /^https:\/\/[^\s"'<>]{8,800}$/.test(img) || /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(img) ? img : '';
+      if (ty === 'fill' && q.gen) {
+        var cw = Math.max(1, Math.min(6, Math.floor(Number(q.cw) || 0))), lay = (q.lay || []).slice(0, 48).map(function (x) { return x == null ? null : clip(x, 80); });
+        var kk = (q.k || []).map(function (x) { return clip(x, 60); }), nb = lay.filter(function (x) { return x === null; }).length;
+        if (!lay.length || lay.length % cw || !nb || nb !== kk.length || kk.some(function (x) { return !x; })) throw err(no + 'ตารางยังไม่ถูกต้อง (ต้องมีช่องให้เติมและใส่คำตอบทุกช่อง)');
+        var op = (q.opts || []).slice(0, 30).map(function (x) { return clip(x, 60); }).filter(Boolean);
+        kk.forEach(function (x) { if (op.indexOf(x) < 0) op.push(x); });
+        return { type: 'fill', gen: true, q: clip(q.q, 300), t: Math.max(10, Math.min(180, Number(q.t) || 60)), x: clip(q.x, 200), st: st, img: img,
+          lay: lay, cw: cw, h1: (q.h1 || []).slice(0, cw).map(function (x) { return clip(x, 60); }), h2: (q.h2 || []).slice(0, lay.length / cw).map(function (x) { return clip(x, 60); }), k: kk, opts: op };
+      }
       if (ty === 'fill') {
         var k = (q.k || []).map(function (x) { return clip(x, 8); }), h1 = (q.h1 || []).map(function (x) { return clip(x, 4); }), h2 = (q.h2 || []).map(function (x) { return clip(x, 4); });
         if (!k.length || k.length > 40 || !h1.length || !h2.length || k.some(function (x) { return !x; })) throw err(no + 'ตารางพันนิตต์ยังไม่ถูกต้อง');
@@ -286,7 +297,7 @@ var CQ = (function () {
     var q = r.qs[r.idx];
     if (q.type === 'fill') {
       if (!Array.isArray(o.choice) || o.choice.length !== q.k.length) throw err('กรุณาเติมให้ครบทุกช่อง');
-      c = o.choice.map(function (x) { return clip(x, 8); });
+      c = o.choice.map(function (x) { return clip(x, 60); });
     } else if (q.type === 'match') {
       if (!Array.isArray(o.choice) || o.choice.length !== q.p.length) throw err('กรุณาจับคู่ให้ครบ');
       c = o.choice.map(Number);
@@ -371,7 +382,7 @@ var CQ = (function () {
       if (P.done || Number(o.idx) !== L[P.i] || !P.qs) return { stale: true };
       var gi = L[P.i], q = r.qs[gi], ms = now - P.qs, c = o.choice, a = null;
       if (c != null && ms <= q.t * 1000 + 2500) {
-        if (q.type === 'fill' && Array.isArray(c) && c.length === q.k.length) a = { c: c.map(function (x) { return clip(x, 8); }), ms: ms };
+        if (q.type === 'fill' && Array.isArray(c) && c.length === q.k.length) a = { c: c.map(function (x) { return clip(x, 60); }), ms: ms };
         else if (q.type === 'match' && Array.isArray(c) && c.length === q.p.length) a = { c: c.map(Number), ms: ms };
         else if (q.type === 'mc' && Number(c) >= 0 && Number(c) < q.c.length) a = { c: Number(c), ms: ms };
       }
