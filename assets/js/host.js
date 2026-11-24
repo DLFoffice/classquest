@@ -101,33 +101,113 @@ async function showLibrary() {
   try { await loadLib(); } catch (e) { if (/รหัสครู/.test(e.message)) { KEY = ''; SSset('key', ''); return vLogin(e.message); } toast(e.message); }
   renderLibrary();
 }
-function renderLibrary() {
+let LV = { sub: LSget('lsub', ''), q: '', sort: LSget('lsort', 'new'), view: LSget('lview', 'grid') };
+function ago(t) {
+  const d = new Date(String(t || '').replace(' ', 'T')); if (isNaN(d)) return String(t || '');
+  const m = Math.round((Date.now() - d) / 60000);
+  if (m < 1) return 'เมื่อสักครู่'; if (m < 60) return m + ' นาทีที่แล้ว';
+  const h = Math.round(m / 60); if (h < 24) return h + ' ชั่วโมงที่แล้ว';
+  const dd = Math.round(h / 24); if (dd === 1) return 'เมื่อวาน'; if (dd < 7) return dd + ' วันที่แล้ว';
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+const SUBJ_HUE = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+function libSubjects() {
   const S = LIBC.subjects.slice(), by = {};
   S.forEach((s) => (by[s] = []));
   LIBC.items.forEach((x) => { (by[x.subject] = by[x.subject] || []).push(x); if (!S.includes(x.subject)) S.push(x.subject); });
-  Object.values(by).forEach((a) => a.sort((p, q) => String(q.updated).localeCompare(String(p.updated))));
+  return { S, by };
+}
+function renderLibrary() {
+  const { S, by } = libSubjects();
+  if (LV.sub && !S.includes(LV.sub)) LV.sub = '';
+  const nQ = LIBC.items.reduce((a, x) => a + (Number(x.n) || 0), 0), rooms = RECENT();
   const draft = SET.questions && SET.questions.length && (!SET.libId || dirty);
-  const card = (x) => `<article class="lc ${SET.libId === x.id ? 'cur' : ''}">
-      <div class="lc-ban tp-${esc(x.theme || 'auto')}"><span>${LIB_ART[x.theme] || '✨'}</span>${SET.libId === x.id ? '<em>กำลังแก้ไข</em>' : ''}</div>
-      <div class="lc-body"><b>${esc(x.title)}</b><small>${x.n} ข้อ · ${MODE_LABEL[x.mode] || MODE_LABEL.live}</small><small class="lc-when">แก้ไขล่าสุด ${esc(x.updated)}</small></div>
-      <div class="lc-act"><button class="lc-open" data-lopen="${esc(x.id)}">✏️ เปิด</button><button data-ldup="${esc(x.id)}" title="ทำสำเนา">⧉</button><button data-ldel="${esc(x.id)}" title="ลบ">🗑</button></div></article>`;
-  view.innerHTML = `<div class="lib">
-    <header class="lib-hero"><div class="lib-m">${MASCOT}</div><div><small>ห้องเรียนผจญภัย</small><h1>คลังกิจกรรมของฉัน</h1>
-      <p>${S.length} รายวิชา · ${LIBC.items.length} กิจกรรม${DEMO ? ' · โหมดทดลอง (เก็บในเครื่องนี้)' : ' · บันทึกใน Google Sheets'}</p></div>
-      <div class="lib-acts"><button class="ed-go" id="bNewAct"><span>＋ กิจกรรมใหม่</span></button><button class="ed-ghost" id="bNewSubj">＋ รายวิชาใหม่</button></div></header>
-    ${RECENT().length ? `<div class="lib-rooms"><b>🟢 ห้องที่เปิดจากเครื่องนี้</b>${RECENT().map((r) => `<span class="lr"><em>ห้อง ${esc(r.pin)}</em>${esc(r.title || '')}<small>${MODE_LABEL[r.mode] || ''}</small>
-      <button class="ed-go sm" data-rejoin="${esc(r.pin)}">กลับเข้าห้อง</button><button class="lr-x" data-rforget="${esc(r.pin)}" title="ลบออกจากรายการ">✕</button></span>`).join('')}</div>` : ''}
-    ${draft ? `<div class="lib-draft"><span>📝</span><div><b>${esc(SET.title || 'ไม่มีชื่อ')}</b><small>${SET.libId ? 'มีการแก้ไขที่ยังไม่บันทึก' : 'ชุดที่แก้ไว้ในเครื่องนี้ ยังไม่ได้บันทึกลงคลัง'} · ${SET.questions.length} ข้อ</small></div>
-      <button class="ed-ghost" id="bDraftOpen">เปิดแก้ไขต่อ</button><button class="ed-go sm" id="bDraftSave">💾 บันทึกลงคลัง</button></div>` : ''}
-    ${S.length ? S.map((s) => `<section class="lib-sub"><div class="ls-head"><h2>📘 ${esc(s)}</h2><span>${by[s].length} กิจกรรม</span>
-        <button class="ls-btn" data-sren="${esc(s)}" title="เปลี่ยนชื่อวิชา">✏️</button>${by[s].length ? '' : `<button class="ls-btn" data-sdel="${esc(s)}" title="ลบวิชา">🗑</button>`}</div>
-      <div class="lc-grid">${by[s].map(card).join('')}<button class="lc-add" data-snew="${esc(s)}"><span>＋</span>เพิ่มกิจกรรมในวิชานี้</button></div></section>`).join('')
+  const subBtn = (s) => `<div class="lb-sb ${LV.sub === s ? 'on' : ''}" style="--h:${SUBJ_HUE(s)}"><button class="lb-sbm" data-lsub="${esc(s)}"><i>📘</i><span>${esc(s)}</span><em>${by[s].length}</em></button>
+      <span class="lb-sbx"><button data-sren="${esc(s)}" title="เปลี่ยนชื่อวิชา">✏️</button>${by[s].length ? '' : `<button data-sdel="${esc(s)}" title="ลบวิชา">🗑</button>`}</span></div>`;
+  view.innerHTML = `<div class="lib2">
+    <aside class="lb-side">
+      <div class="lb-brand"><div class="lb-m">${MASCOT}</div><div><small>ห้องเรียนผจญภัย</small><b>คลังกิจกรรม</b></div></div>
+      <p class="lb-cap">รายวิชา</p>
+      <nav class="lb-nav">
+        <div class="lb-sb all ${LV.sub ? '' : 'on'}"><button class="lb-sbm" data-lsub=""><i>🗂️</i><span>ทั้งหมด</span><em>${LIBC.items.length}</em></button></div>
+        ${S.map(subBtn).join('')}
+        <button class="lb-addsub" id="bNewSubj">＋ รายวิชาใหม่</button>
+      </nav>
+      ${rooms.length ? `<p class="lb-cap">🟢 ห้องที่เปิดอยู่</p><div class="lb-rooms">${rooms.map((r) => `<div class="lr2"><div class="lr2-pin">${esc(r.pin)}</div>
+        <div class="lr2-t"><b>${esc(r.title || 'ไม่มีชื่อ')}</b><small>${MODE_LABEL[r.mode] || ''} · ${r.at ? timeAgoMs(r.at) : ''}</small></div>
+        <button class="lr2-go" data-rejoin="${esc(r.pin)}" title="กลับเข้าห้อง">↩</button><button class="lr2-x" data-rforget="${esc(r.pin)}" title="ลบออกจากรายการ">✕</button></div>`).join('')}</div>` : ''}
+      <p class="lb-store">${DEMO ? '💻 โหมดทดลอง · เก็บในเครื่องนี้' : '☁️ บันทึกใน Google Sheets'}</p>
+    </aside>
+    <main class="lb-main">
+      <header class="lb-head"><div><small>${LV.sub ? 'รายวิชา' : 'ภาพรวม'}</small><h1>${esc(LV.sub || 'กิจกรรมทั้งหมด')}</h1></div>
+        <button class="ed-go" id="bNewAct"><span>＋ กิจกรรมใหม่</span></button></header>
+      <div class="lb-stats">
+        <div class="st-a"><i>📚</i><b>${S.length}</b><small>รายวิชา</small></div>
+        <div class="st-b"><i>🧩</i><b>${LIBC.items.length}</b><small>กิจกรรม</small></div>
+        <div class="st-c"><i>❓</i><b>${nQ}</b><small>ข้อคำถาม</small></div>
+        <div class="st-d"><i>🟢</i><b>${rooms.length}</b><small>ห้องที่เปิด</small></div>
+      </div>
+      ${draft ? `<div class="lib-draft"><span>📝</span><div><b>${esc(SET.title || 'ไม่มีชื่อ')}</b><small>${SET.libId ? 'มีการแก้ไขที่ยังไม่บันทึก' : 'ชุดที่แก้ไว้ในเครื่องนี้ ยังไม่ได้บันทึกลงคลัง'} · ${SET.questions.length} ข้อ</small></div>
+        <button class="ed-ghost" id="bDraftOpen">เปิดแก้ไขต่อ</button><button class="ed-go sm" id="bDraftSave"><span>💾 บันทึกลงคลัง</span></button></div>` : ''}
+      ${S.length ? `<div class="lb-tools">
+        <label class="lb-search"><span>🔎</span><input id="lbQ" placeholder="ค้นหากิจกรรม…" value="${esc(LV.q)}"></label>
+        <select id="lbSort" class="lb-sel"><option value="new" ${LV.sort === 'new' ? 'selected' : ''}>แก้ไขล่าสุด</option><option value="name" ${LV.sort === 'name' ? 'selected' : ''}>ชื่อ ก–ฮ</option><option value="n" ${LV.sort === 'n' ? 'selected' : ''}>จำนวนข้อ</option></select>
+        <div class="lb-vt"><button data-lview="grid" class="${LV.view === 'grid' ? 'on' : ''}" title="แบบการ์ด">▦</button><button data-lview="list" class="${LV.view === 'list' ? 'on' : ''}" title="แบบรายการ">☰</button></div>
+      </div><div id="lbList"></div>`
       : `<div class="lib-empty"><div class="lib-m">${MASCOT}</div><h2>เริ่มจากสร้างรายวิชาแรก</h2><p>เช่น "วิทยาศาสตร์ ม.3/1" แล้วเพิ่มกิจกรรมเก็บไว้ได้หลายชุด</p><button class="ed-go" id="bFirstSubj"><span>＋ สร้างรายวิชา</span></button></div>`}
-  </div>`;
-  $('#bNewAct').onclick = () => newActivity(S[0] || '');
+    </main></div>`;
+  $('#bNewAct').onclick = () => newActivity(LV.sub || S[0] || '');
   $('#bNewSubj').onclick = newSubject; if ($('#bFirstSubj')) $('#bFirstSubj').onclick = newSubject;
   if ($('#bDraftOpen')) $('#bDraftOpen').onclick = () => showSetup();
-  if ($('#bDraftSave')) $('#bDraftSave').onclick = async () => { if (!SET.subject) { const s = await pickSubject(); if (!s) return; SET.subject = s; } if (await saveCloud()) renderLibrary(); };
+  if ($('#bDraftSave')) $('#bDraftSave').onclick = async () => { if (!SET.subject) { const s = await pickSubject(LV.sub); if (!s) return; SET.subject = s; } if (await saveCloud()) renderLibrary(); };
+  if ($('#lbQ')) {
+    $('#lbQ').oninput = (e) => { LV.q = e.target.value; renderLibList(); };
+    $('#lbSort').onchange = (e) => { LV.sort = e.target.value; LSset('lsort', LV.sort); renderLibList(); };
+    renderLibList();
+  }
+}
+function timeAgoMs(ms) { const d = new Date(ms), p = (n) => String(n).padStart(2, '0'); return ago(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`); }
+function libCard(x, showSub) {
+  const cur = SET.libId === x.id, th = x.theme || 'auto';
+  if (LV.view === 'list') return `<article class="lc lrow ${cur ? 'cur' : ''}"><div class="lrow-ic tp-${esc(th)}">${LIB_ART[th] || '✨'}</div>
+      <div class="lrow-t"><b>${esc(x.title)}</b>${cur ? '<em class="lc-cur">กำลังแก้ไข</em>' : ''}<small>${showSub ? `📘 ${esc(x.subject)} · ` : ''}${x.n} ข้อ · ${MODE_LABEL[x.mode] || MODE_LABEL.live}</small></div>
+      <span class="lrow-when">${esc(ago(x.updated))}</span>
+      <div class="lc-act"><button class="lc-open" data-lopen="${esc(x.id)}">✏️ แก้ไข</button><button class="lc-play" data-lplay="${esc(x.id)}">▶ เปิดห้อง</button><button class="lc-more" data-lmenu="${esc(x.id)}" title="เพิ่มเติม">⋯</button></div></article>`;
+  return `<article class="lc ${cur ? 'cur' : ''}">
+      <div class="lc-ban tp-${esc(th)}"><span class="lc-art">${LIB_ART[th] || '✨'}</span>${cur ? '<em>กำลังแก้ไข</em>' : ''}<i class="lc-mode">${MODE_LABEL[x.mode] || MODE_LABEL.live}</i>
+        <button class="lc-more" data-lmenu="${esc(x.id)}" title="เพิ่มเติม">⋯</button></div>
+      <div class="lc-body"><b title="${esc(x.title)}">${esc(x.title)}</b>
+        <div class="lc-meta"><span>❓ ${x.n} ข้อ</span>${showSub ? `<span class="lc-sub" style="--h:${SUBJ_HUE(x.subject)}">${esc(x.subject)}</span>` : ''}</div>
+        <small class="lc-when">🕒 แก้ไข ${esc(ago(x.updated))}</small></div>
+      <div class="lc-act"><button class="lc-open" data-lopen="${esc(x.id)}">✏️ แก้ไข</button><button class="lc-play" data-lplay="${esc(x.id)}">▶ เปิดห้องเลย</button></div></article>`;
+}
+function renderLibList() {
+  const box = $('#lbList'); if (!box) return;
+  const { S, by } = libSubjects(), q = LV.q.trim().toLowerCase();
+  const sortF = LV.sort === 'name' ? (a, b) => String(a.title).localeCompare(String(b.title), 'th') : LV.sort === 'n' ? (a, b) => (b.n || 0) - (a.n || 0) : (a, b) => String(b.updated).localeCompare(String(a.updated));
+  const filt = (L) => L.filter((x) => !q || String(x.title).toLowerCase().includes(q) || String(x.subject).toLowerCase().includes(q)).sort(sortF);
+  const wrap = (L, s) => `<div class="${LV.view === 'list' ? 'lc-list' : 'lc-grid'}">${L.map((x) => libCard(x, !s && !LV.sub)).join('')}${q ? '' : `<button class="lc-add" data-snew="${esc(s || LV.sub || S[0] || '')}"><span>＋</span>เพิ่มกิจกรรม${s ? 'ในวิชานี้' : ''}</button>`}</div>`;
+  let html;
+  if (LV.sub) { const L = filt(by[LV.sub] || []); html = L.length || !q ? wrap(L, LV.sub) : ''; }
+  else if (q) { const L = filt(LIBC.items); html = L.length ? wrap(L, '') : ''; }
+  else html = S.map((s) => `<section class="lib-sub" style="--h:${SUBJ_HUE(s)}"><div class="ls-head"><h2><i></i>${esc(s)}</h2><span>${by[s].length} กิจกรรม</span>
+      <button class="ls-btn" data-lsub="${esc(s)}">ดูเฉพาะวิชานี้ ›</button></div>${wrap(filt(by[s]), s)}</section>`).join('');
+  box.innerHTML = html || `<div class="lb-none"><span>🔍</span><b>ไม่พบกิจกรรมที่ตรงกับ “${esc(LV.q)}”</b><small>ลองใช้คำอื่น หรือดูรายวิชาทั้งหมด</small></div>`;
+}
+function libMenu(btn, id) {
+  $$('.lb-pop').forEach((p) => p.remove());
+  const r = btn.getBoundingClientRect(), m = document.createElement('div'); m.className = 'lb-pop';
+  m.innerHTML = `<button data-ldup="${esc(id)}">⧉ ทำสำเนา</button><button data-lmove="${esc(id)}">📂 ย้ายไปวิชาอื่น</button><hr><button class="dz" data-ldel="${esc(id)}">🗑 ลบกิจกรรม</button>`;
+  document.body.appendChild(m);
+  const w = m.offsetWidth; m.style.top = (r.bottom + 6 + window.scrollY) + 'px'; m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+}
+async function quickStart(id) {
+  if (dirty && SET.libId && SET.libId !== id && !await askOk('กิจกรรมที่เปิดอยู่มีการแก้ไขที่ยังไม่บันทึก เปิดห้องกิจกรรมอื่นเลยไหม?')) return;
+  const it = LIBC.items.find((x) => x.id === id) || {};
+  if (!await askOk(`เปิดห้องเกม "${it.title || ''}"?`, { text: `${it.n || 0} ข้อ · ${MODE_LABEL[it.mode] || MODE_LABEL.live} · นักเรียนเข้าด้วยรหัสห้องที่จะแสดงบนจอ`, icon: '🚀', ok: '▶ เปิดห้องเลย', danger: false })) return;
+  const r = await call('lib_get', { key: KEY, id });
+  SET = { ...r.set, title: r.title, subject: r.subject, libId: r.id }; LSset('set', SET); dirty = false; savedAt = it.updated || '';
+  return createRoom();
 }
 async function newSubject() {
   const n = ((await askText('ตั้งชื่อรายวิชาใหม่', '', { placeholder: 'เช่น วิทยาศาสตร์ ม.3/1', icon: '📘', ok: 'สร้างรายวิชา' })) || '').trim(); if (!n) return;
@@ -245,9 +325,19 @@ document.addEventListener('click', async (e) => {
   if (rj) { PIN = rj.dataset.rejoin; SSset('pin', PIN); lastKey = ''; G = null; return startPoll(); }
   if (rf) { forgetRoom(rf.dataset.rforget); return renderLibrary(); }
   const sr = e.target.closest('[data-sren]'), sd = e.target.closest('[data-sdel]'), sn = e.target.closest('[data-snew]');
+  const ls = e.target.closest('[data-lsub]'), lv = e.target.closest('[data-lview]'), lm = e.target.closest('[data-lmenu]'), lp = e.target.closest('[data-lplay]'), mv = e.target.closest('[data-lmove]');
+  if (!e.target.closest('.lb-pop') && !lm) $$('.lb-pop').forEach((p) => p.remove());
+  if (ls) { LV.sub = ls.dataset.lsub; LSset('lsub', LV.sub); LV.q = ''; renderLibrary(); return window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (lv) { LV.view = lv.dataset.lview; LSset('lview', LV.view); $$('.lb-vt button').forEach((b) => b.classList.toggle('on', b === lv)); return renderLibList(); }
+  if (lm) { const open = document.querySelector('.lb-pop'); if (open && open.dataset.for === lm.dataset.lmenu) return open.remove(); libMenu(lm, lm.dataset.lmenu); document.querySelector('.lb-pop').dataset.for = lm.dataset.lmenu; return; }
+  if (d || x || mv) $$('.lb-pop').forEach((p) => p.remove());
   try {
     if (o) return openActivity(o.dataset.lopen);
     if (sn) return newActivity(sn.dataset.snew);
+    if (lp) return await quickStart(lp.dataset.lplay);
+    if (mv) { const id = mv.dataset.lmove, it = LIBC.items.find((y) => y.id === id) || {}; const ns = await pickSubject(it.subject); if (!ns || ns === it.subject) return;
+      const r = await call('lib_get', { key: KEY, id }); await call('lib_save', { key: KEY, id, subject: ns, title: r.title, set: r.set });
+      if (SET.libId === id) { SET.subject = ns; LSset('set', SET); } await loadLib(); renderLibrary(); return toast(`ย้ายไป "${ns}" แล้ว`); }
     if (d) { const r = await call('lib_get', { key: KEY, id: d.dataset.ldup }); await call('lib_save', { key: KEY, subject: r.subject, title: r.title + ' (สำเนา)', set: r.set }); await loadLib(); renderLibrary(); return toast('ทำสำเนาแล้ว'); }
     if (x) { const it = LIBC.items.find((y) => y.id === x.dataset.ldel); if (!await askOk(`ลบกิจกรรม "${it ? it.title : ''}"? ลบแล้วกู้คืนไม่ได้`)) return;
       await call('lib_delete', { key: KEY, id: x.dataset.ldel }); if (SET.libId === x.dataset.ldel) { delete SET.libId; LSset('set', SET); } await loadLib(); return renderLibrary(); }
@@ -596,12 +686,12 @@ async function createRoom() {
   if (!DEMO) { KEY = ($('#iKey') ? $('#iKey').value.trim() : '') || KEY; if (!KEY) return toast('ใส่รหัสครูก่อน'); }
   if (dirty && SET.subject && SET.title) await saveCloud(true);
   sound.unlock();
-  const b = $('#bCreate'); b.disabled = true; b.querySelector('span').textContent = 'กำลังสร้างห้อง…';
+  const b = $('#bCreate'); if (b) { b.disabled = true; b.querySelector('span').textContent = 'กำลังสร้างห้อง…'; }
   try {
     if (!DEMO) { await call('check', { key: KEY }); SSset('key', KEY); }
     const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), stages: SET.stages || [], mode: ['self', 'station'].includes(SET.mode) ? SET.mode : 'live', rotate: SET.rotate !== false, questions: qs });
     PIN = r.pin; SSset('pin', PIN); lastKey = ''; rememberRoom(PIN, SET.title, ['self', 'station'].includes(SET.mode) ? SET.mode : 'live'); startPoll();
-  } catch (e) { toast(e.message); b.disabled = false; b.querySelector('span').textContent = 'สร้างห้องเกม'; }
+  } catch (e) { toast(e.message); if (b) { b.disabled = false; b.querySelector('span').textContent = 'สร้างห้องเกม'; } }
 }
 
 // ===================================================== เกม
