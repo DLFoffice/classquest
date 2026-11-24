@@ -27,8 +27,38 @@ async function callLocal(action, body) {
   await sleep(60);
   if (action === 'check') return { ok: true };
   if (action === 'upload') return { url: body.data };
+  if (action.startsWith('lib_') || action.startsWith('subj_')) return libLocal(action, body);
   if (action === 'results') return { rooms: local.get('sheet_rooms') || [], answers: local.get('sheet_answers') || [], players: local.get('sheet_players') || [] };
   return window.CQ[LOCAL_MAP[action]](local, body);
+}
+
+// คลังกิจกรรมในเครื่อง (โหมดทดลอง)
+function libLocal(action, b) {
+  const L = local.get('lib') || { subjects: [], items: {} }, put = () => local.put('lib', L), now = fmt(new Date()).slice(0, 16);
+  const addSubj = (n) => { if (n && !L.subjects.includes(n)) L.subjects.push(n); };
+  if (action === 'lib_list') {
+    const items = Object.values(L.items).map(({ data, ...x }) => x);
+    items.forEach((x) => addSubj(x.subject));
+    return { subjects: L.subjects.slice(), items };
+  }
+  if (action === 'lib_get') { const x = L.items[b.id]; if (!x) throw new Error('ไม่พบกิจกรรมนี้ (อาจถูกลบไปแล้ว)'); return { id: x.id, subject: x.subject, title: x.title, set: JSON.parse(x.data) }; }
+  if (action === 'lib_save') {
+    const subject = String(b.subject || '').trim(), title = String(b.title || '').trim();
+    if (!subject) throw new Error('กรุณาเลือกรายวิชา'); if (!title) throw new Error('กรุณาตั้งชื่อกิจกรรม');
+    const id = b.id && L.items[b.id] ? b.id : Math.random().toString(36).slice(2, 12), set = b.set || {};
+    L.items[id] = { id, subject, title, n: (set.questions || []).length, updated: now, theme: set.theme || '', mode: set.mode || '', data: JSON.stringify(set) };
+    addSubj(subject); put(); return { id, updated: now };
+  }
+  if (action === 'lib_delete') { delete L.items[b.id]; put(); return { ok: true }; }
+  if (action === 'subj_save') {
+    const name = String(b.name || '').trim(), old = String(b.old || '').trim(); if (!name) throw new Error('กรุณาใส่ชื่อรายวิชา');
+    if (old) { L.subjects = L.subjects.map((s) => (s === old ? name : s)); Object.values(L.items).forEach((x) => { if (x.subject === old) x.subject = name; }); }
+    addSubj(name); put(); return { ok: true };
+  }
+  if (action === 'subj_delete') {
+    if (Object.values(L.items).some((x) => x.subject === b.name)) throw new Error('ยังมีกิจกรรมในวิชานี้ — ย้ายหรือลบกิจกรรมก่อน');
+    L.subjects = L.subjects.filter((s) => s !== b.name); put(); return { ok: true };
+  }
 }
 
 // ---------------- Google Apps Script ----------------
