@@ -1,6 +1,6 @@
 // จอครู: ตั้งค่าข้อคำถาม → ห้องรอ (PIN + QR) → คำถาม → เฉลย → อันดับ → โพเดียม
 import { call, DEMO } from './api.js';
-import { $, $$, esc, shape, avatar, MASCOT, FOX, FOX_THEMES, mascotFor, foxSVG, confetti, toast, sound, music, sleep } from './ui.js';
+import { $, $$, esc, shape, avatar, MASCOT, FOX, FOX_THEMES, mascotFor, foxSVG, dialog, askOk, askText, confetti, toast, sound, music, sleep } from './ui.js';
 import { SAMPLE, SAMPLES, SOLAR, GENETICS, STAGES4 } from './sample.js';
 import { parsePunnett, punnettHTML, buildFill, normGeno, FUR } from './punnett.js';
 import { THEMES, themeFor, backdrop, blizzard, swap, wordsHTML, countUp, sparkle, fireworks, floatEmoji, peek, flipRows, REDUCED } from './fx.js';
@@ -49,6 +49,7 @@ const libSet = () => ({ title: SET.title, theme: SET.theme || 'auto', stages: SE
 const MODE_LABEL = { live: '🎮 เล่นสด', self: '🏃 เล่นเอง', station: '🏕️ แบบฐาน' };
 const LIB_ART = { auto: '✨', snow: '❄️', fire: '🔥', earth: '🌿', wind: '🌪️', space: '🪐', nature: '🌿', ocean: '🐠', lab: '🧪', math: '🔢', class: '✏️' };
 function vLogin(err) {
+  updExit();
   view.innerHTML = `<form class="mj lib-login" id="fLogin"><div class="mj-hero"><div class="mj-m">${MASCOT}</div><div><small>ห้องเรียนผจญภัย</small><h1>คลังกิจกรรม<br>ของครู</h1></div></div>
     <div class="mj-body"><label class="mj-lbl" for="iKey0">รหัสครู (HOST_KEY)</label><div class="mj-in"><span>🔑</span><input id="iKey0" type="password" autocomplete="current-password" required></div>
     <button class="mj-go"><span>เข้าสู่คลังกิจกรรม</span><i>📚</i></button></div></form>`;
@@ -62,8 +63,39 @@ async function loadLib() {
   LIBC = await call('lib_list', { key: KEY }); libLoaded = true;
   if (SET.subject && !LIBC.subjects.includes(SET.subject)) LIBC.subjects.push(SET.subject);
 }
+// ===================================================== ออกจากห้อง / ออกจากระบบ
+const RECENT = () => LSget('rooms', []);
+function rememberRoom(pin, title, mode) { const L = RECENT().filter((x) => x.pin !== pin); L.unshift({ pin, title, mode, at: Date.now() }); LSset('rooms', L.slice(0, 6)); }
+function forgetRoom(pin) { LSset('rooms', RECENT().filter((x) => x.pin !== pin)); }
+function updExit() {
+  const b = $('#bExit'); if (!b) return;
+  if (PIN) { b.hidden = false; b.textContent = '🚪 ออกจากห้อง'; b.classList.add('in-room'); }
+  else if (!DEMO && KEY) { b.hidden = false; b.textContent = '🔒 ออกจากระบบ'; b.classList.remove('in-room'); }
+  else b.hidden = true;
+}
+function leaveRoom() {
+  stopPoll(); clearInterval(timerT); music.stop(); document.body.classList.remove('hurry');
+  PIN = ''; SSset('pin', ''); G = null; lastKey = ''; shown = new Set(); selfSeen = new Set(); prevBoard = [];
+  showLibrary();
+}
+$('#bExit').onclick = async () => {
+  if (PIN) {
+    const ended = G && G.phase === 'end';
+    const v = ended ? 'leave' : await dialog({ title: `ออกจากห้อง ${PIN}?`, icon: '🚪',
+      text: G && G.mode === 'live' ? 'ถ้าออกไปก่อน เกมจะหยุดรอจนกว่าครูจะกลับเข้าห้อง' : 'ถ้าออกไปก่อน นักเรียนยังทำต่อได้ และครูกลับเข้ามาดูความคืบหน้าได้',
+      buttons: [{ label: '🏁 ปิดห้อง บันทึกผล แล้วออก', value: 'end', kind: 'danger' }, { label: 'ออกไปก่อน (ห้องยังเปิดอยู่)', value: 'leave', kind: 'primary' }, { label: 'ยกเลิก', value: null }] });
+    if (!v) return;
+    if (v === 'end') { try { if (G && G.phase === 'question') await call('reveal', { key: KEY, pin: PIN }); await call('end', { key: KEY, pin: PIN }); toast('ปิดห้องและบันทึกผลแล้ว'); } catch (e) { toast(e.message); } }
+    if (v === 'end' || ended) forgetRoom(PIN);
+    return leaveRoom();
+  }
+  if (!(await askOk('ออกจากระบบ?', { text: 'ระบบจะลืมรหัสครูในเครื่องนี้ ครั้งหน้าต้องใส่รหัสใหม่', icon: '🔒', ok: 'ออกจากระบบ', danger: true }))) return;
+  if (dirty && !(await askOk('มีการแก้ไขที่ยังไม่บันทึก ออกเลยไหม?', { text: 'งานจะยังค้างอยู่ในเครื่องนี้ เปิดแก้ต่อได้ภายหลัง', icon: '💾' }))) return;
+  KEY = ''; SSset('key', ''); showLibrary();
+};
+
 async function showLibrary() {
-  stopPoll(); music.stop(); backdrop('class'); $('#phaseChip').hidden = true;
+  stopPoll(); music.stop(); backdrop('class'); $('#phaseChip').hidden = true; updExit();
   if (!DEMO && !KEY) return vLogin();
   view.innerHTML = `<div class="lib"><p class="lib-loading">กำลังโหลดคลังกิจกรรม…</p></div>`;
   try { await loadLib(); } catch (e) { if (/รหัสครู/.test(e.message)) { KEY = ''; SSset('key', ''); return vLogin(e.message); } toast(e.message); }
@@ -83,6 +115,8 @@ function renderLibrary() {
     <header class="lib-hero"><div class="lib-m">${MASCOT}</div><div><small>ห้องเรียนผจญภัย</small><h1>คลังกิจกรรมของฉัน</h1>
       <p>${S.length} รายวิชา · ${LIBC.items.length} กิจกรรม${DEMO ? ' · โหมดทดลอง (เก็บในเครื่องนี้)' : ' · บันทึกใน Google Sheets'}</p></div>
       <div class="lib-acts"><button class="ed-go" id="bNewAct"><span>＋ กิจกรรมใหม่</span></button><button class="ed-ghost" id="bNewSubj">＋ รายวิชาใหม่</button></div></header>
+    ${RECENT().length ? `<div class="lib-rooms"><b>🟢 ห้องที่เปิดจากเครื่องนี้</b>${RECENT().map((r) => `<span class="lr"><em>ห้อง ${esc(r.pin)}</em>${esc(r.title || '')}<small>${MODE_LABEL[r.mode] || ''}</small>
+      <button class="ed-go sm" data-rejoin="${esc(r.pin)}">กลับเข้าห้อง</button><button class="lr-x" data-rforget="${esc(r.pin)}" title="ลบออกจากรายการ">✕</button></span>`).join('')}</div>` : ''}
     ${draft ? `<div class="lib-draft"><span>📝</span><div><b>${esc(SET.title || 'ไม่มีชื่อ')}</b><small>${SET.libId ? 'มีการแก้ไขที่ยังไม่บันทึก' : 'ชุดที่แก้ไว้ในเครื่องนี้ ยังไม่ได้บันทึกลงคลัง'} · ${SET.questions.length} ข้อ</small></div>
       <button class="ed-ghost" id="bDraftOpen">เปิดแก้ไขต่อ</button><button class="ed-go sm" id="bDraftSave">💾 บันทึกลงคลัง</button></div>` : ''}
     ${S.length ? S.map((s) => `<section class="lib-sub"><div class="ls-head"><h2>📘 ${esc(s)}</h2><span>${by[s].length} กิจกรรม</span>
@@ -96,7 +130,7 @@ function renderLibrary() {
   if ($('#bDraftSave')) $('#bDraftSave').onclick = async () => { if (!SET.subject) { const s = await pickSubject(); if (!s) return; SET.subject = s; } if (await saveCloud()) renderLibrary(); };
 }
 async function newSubject() {
-  const n = (prompt('ชื่อรายวิชา (เช่น วิทยาศาสตร์ ม.3/1)') || '').trim(); if (!n) return;
+  const n = ((await askText('ตั้งชื่อรายวิชาใหม่', '', { placeholder: 'เช่น วิทยาศาสตร์ ม.3/1', icon: '📘', ok: 'สร้างรายวิชา' })) || '').trim(); if (!n) return;
   try { await call('subj_save', { key: KEY, name: n }); await loadLib(); renderLibrary(); toast('เพิ่มรายวิชาแล้ว'); } catch (e) { toast(e.message); }
 }
 function pickSubject(def) {
@@ -134,7 +168,7 @@ function newActivity(subject) {
     let subj = $('#naS', m).value; const title = $('#naT', m).value.trim(), tpl = (m.querySelector('[name=tpl]:checked') || {}).value;
     if (subj === '__new') subj = $('#naSN', m).value.trim();
     if (!subj) return toast('เลือกหรือพิมพ์ชื่อรายวิชา'); if (!title) return toast('ตั้งชื่อกิจกรรมก่อน');
-    if (dirty && SET.libId && !confirm('กิจกรรมที่เปิดอยู่มีการแก้ไขที่ยังไม่บันทึก สร้างใหม่เลยไหม? (การแก้ไขนั้นจะหายไป)')) return;
+    if (dirty && SET.libId && !await askOk('กิจกรรมที่เปิดอยู่มีการแก้ไขที่ยังไม่บันทึก สร้างใหม่เลยไหม? (การแก้ไขนั้นจะหายไป)')) return;
     const base = tpl ? clone(SAMPLES.find((x) => x.key === tpl).set) : { theme: 'auto', mode: 'live', story: '', stages: [], questions: [{ type: 'mc', q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }] };
     SET = { ...base, title, subject: subj }; delete SET.libId;
     m.remove(); LSset('set', SET);
@@ -142,7 +176,7 @@ function newActivity(subject) {
   };
 }
 async function openActivity(id) {
-  if (dirty && SET.libId && SET.libId !== id && !confirm('กิจกรรมที่เปิดอยู่มีการแก้ไขที่ยังไม่บันทึก เปิดกิจกรรมอื่นเลยไหม?')) return;
+  if (dirty && SET.libId && SET.libId !== id && !await askOk('กิจกรรมที่เปิดอยู่มีการแก้ไขที่ยังไม่บันทึก เปิดกิจกรรมอื่นเลยไหม?')) return;
   try {
     const r = await call('lib_get', { key: KEY, id });
     SET = { ...r.set, title: r.title, subject: r.subject, libId: r.id }; LSset('set', SET); dirty = false;
@@ -179,7 +213,11 @@ function edBarHTML() {
 }
 function bindEdBar() {
   $('#bLib').onclick = async () => {
-    if (dirty && confirm('มีการแก้ไขที่ยังไม่บันทึก — กด "ตกลง" เพื่อบันทึกก่อนกลับคลัง\n(กด "ยกเลิก" เพื่อกลับโดยไม่บันทึก งานจะยังค้างอยู่ในเครื่องนี้)')) { if (!(await saveCloud(true))) return; }
+    if (dirty) {
+      const v = await dialog({ title: 'มีการแก้ไขที่ยังไม่บันทึก', text: 'บันทึกลงคลังก่อนกลับไหม?', icon: '💾',
+        buttons: [{ label: '💾 บันทึกแล้วกลับ', value: 'save', kind: 'primary' }, { label: 'กลับโดยไม่บันทึก (งานยังค้างในเครื่องนี้)', value: 'go', kind: 'ghost' }, { label: 'ยกเลิก', value: null, kind: 'ghost' }] });
+      if (!v) return; if (v === 'save' && !(await saveCloud(true))) return;
+    }
     showLibrary();
   };
   $('#bSave').onclick = () => saveCloud();
@@ -195,7 +233,7 @@ function fillSubjSel() {
 function bindEdBarSubj() {
   $('#selSubj').onchange = async (e) => {
     let v = e.target.value;
-    if (v === '__new') { v = (prompt('ชื่อรายวิชาใหม่') || '').trim(); if (!v) { e.target.value = SET.subject || ''; return; }
+    if (v === '__new') { v = ((await askText('ตั้งชื่อรายวิชาใหม่', '', { placeholder: 'เช่น วิทยาศาสตร์ ม.3/1', icon: '📘' })) || '').trim(); if (!v) { e.target.value = SET.subject || ''; return; }
       try { await call('subj_save', { key: KEY, name: v }); LIBC.subjects.push(v); } catch (x) { toast(x.message); return; }
       const o = document.createElement('option'); o.textContent = v; e.target.insertBefore(o, e.target.lastElementChild); e.target.value = v; }
     SET.subject = v; save();
@@ -203,22 +241,25 @@ function bindEdBarSubj() {
 }
 document.addEventListener('click', async (e) => {
   const o = e.target.closest('[data-lopen]'), d = e.target.closest('[data-ldup]'), x = e.target.closest('[data-ldel]');
+  const rj = e.target.closest('[data-rejoin]'), rf = e.target.closest('[data-rforget]');
+  if (rj) { PIN = rj.dataset.rejoin; SSset('pin', PIN); lastKey = ''; G = null; return startPoll(); }
+  if (rf) { forgetRoom(rf.dataset.rforget); return renderLibrary(); }
   const sr = e.target.closest('[data-sren]'), sd = e.target.closest('[data-sdel]'), sn = e.target.closest('[data-snew]');
   try {
     if (o) return openActivity(o.dataset.lopen);
     if (sn) return newActivity(sn.dataset.snew);
     if (d) { const r = await call('lib_get', { key: KEY, id: d.dataset.ldup }); await call('lib_save', { key: KEY, subject: r.subject, title: r.title + ' (สำเนา)', set: r.set }); await loadLib(); renderLibrary(); return toast('ทำสำเนาแล้ว'); }
-    if (x) { const it = LIBC.items.find((y) => y.id === x.dataset.ldel); if (!confirm(`ลบกิจกรรม "${it ? it.title : ''}"? ลบแล้วกู้คืนไม่ได้`)) return;
+    if (x) { const it = LIBC.items.find((y) => y.id === x.dataset.ldel); if (!await askOk(`ลบกิจกรรม "${it ? it.title : ''}"? ลบแล้วกู้คืนไม่ได้`)) return;
       await call('lib_delete', { key: KEY, id: x.dataset.ldel }); if (SET.libId === x.dataset.ldel) { delete SET.libId; LSset('set', SET); } await loadLib(); return renderLibrary(); }
-    if (sr) { const n = (prompt('เปลี่ยนชื่อรายวิชา', sr.dataset.sren) || '').trim(); if (!n || n === sr.dataset.sren) return;
+    if (sr) { const n = ((await askText('เปลี่ยนชื่อรายวิชา', sr.dataset.sren, { icon: '📘', ok: 'บันทึก' })) || '').trim(); if (!n || n === sr.dataset.sren) return;
       await call('subj_save', { key: KEY, old: sr.dataset.sren, name: n }); if (SET.subject === sr.dataset.sren) { SET.subject = n; LSset('set', SET); } await loadLib(); return renderLibrary(); }
-    if (sd) { if (!confirm(`ลบรายวิชา "${sd.dataset.sdel}"?`)) return; await call('subj_delete', { key: KEY, name: sd.dataset.sdel }); await loadLib(); return renderLibrary(); }
+    if (sd) { if (!await askOk(`ลบรายวิชา "${sd.dataset.sdel}"?`)) return; await call('subj_delete', { key: KEY, name: sd.dataset.sdel }); await loadLib(); return renderLibrary(); }
   } catch (err) { toast(err.message); }
 });
 window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
 function showSetup() {
-  stopPoll(); music.stop(); $('#phaseChip').hidden = true;
+  stopPoll(); music.stop(); $('#phaseChip').hidden = true; updExit();
   const cur = SET.theme || 'auto';
   view.innerHTML = `
   <div class="setup ed">
@@ -270,12 +311,12 @@ function showSetup() {
   $('#iStory').addEventListener('input', (e) => { SET.story = e.target.value; save(); });
   renderStages();
   $('#bSample').onclick = (e) => { e.stopPropagation(); $('#sMenu').hidden = !$('#sMenu').hidden; };
-  $$('[data-sample]').forEach((b) => (b.onclick = () => {
+  $$('[data-sample]').forEach((b) => (b.onclick = async () => {
     const x = SAMPLES.find((y) => y.key === b.dataset.sample);
-    if (confirm(`แทนที่ข้อคำถามทั้งหมดด้วยชุด "${x.label}"?`)) { SET = clone(x.set); save(); showSetup(); }
+    if (await askOk(`แทนที่ข้อคำถามทั้งหมดด้วยชุด "${x.label}"?`)) { SET = clone(x.set); save(); showSetup(); }
   }));
   document.addEventListener('click', () => { const m = $('#sMenu'); if (m) m.hidden = true; }, { once: true });
-  $('#bClear').onclick = () => { if (confirm('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
+  $('#bClear').onclick = async () => { if (await askOk('ลบข้อคำถามทั้งหมด?')) { SET.questions = [{ q: '', c: ['', '', '', ''], a: 0, t: 20, x: '' }]; save(); renderList(); } };
   $('#bImport').onclick = () => { $('#mImport').hidden = false; $('#taImport').focus(); };
   $('#bCreate').onclick = createRoom;
   $$('.mode').forEach((b) => (b.onclick = () => {
@@ -295,7 +336,7 @@ function renderStages() {
       <button class="ed-ghost" id="bNoStage" style="width:100%;margin-top:6px">ไม่ใช้ระบบด่าน</button>`
     : `<button class="ed-ghost" id="bUseStage" style="width:100%">🔥 ใช้ 4 ด่านธาตุ (น้ำ · ไฟ · ดิน · ลม)</button>`;
   $$('[data-sk]', box).forEach((inp) => inp.addEventListener('input', () => { SET.stages[+inp.dataset.si][inp.dataset.sk] = inp.value; save(); }));
-  if ($('#bNoStage')) $('#bNoStage').onclick = () => { if (!confirm('เลิกใช้ระบบด่าน? (ข้อคำถามยังอยู่ครบ)')) return; SET.stages = []; save(); renderStages(); renderList(); };
+  if ($('#bNoStage')) $('#bNoStage').onclick = async () => { if (!await askOk('เลิกใช้ระบบด่าน? (ข้อคำถามยังอยู่ครบ)')) return; SET.stages = []; save(); renderStages(); renderList(); };
   if ($('#bUseStage')) $('#bUseStage').onclick = () => { SET.stages = clone(STAGES4); SET.questions.forEach((q) => { if (!(q.st >= 0)) q.st = 0; }); save(); renderStages(); renderList(); };
 }
 const typeOf = (q) => q.type === 'fill' || q.type === 'match' ? q.type : q.c && q.c.length === 2 ? 'tf' : 'mc';
@@ -406,15 +447,15 @@ function setType(q, ty) {
   else if (ty === 'match') { q.type = 'match'; q.p = q.p && q.p.length ? q.p : [{ l: '', r: '' }, { l: '', r: '' }, { l: '', r: '' }]; q.t = Math.max(Number(q.t) || 0, 45); }
   if (!q.c) q.c = ['', '', '', '']; if (q.a == null) q.a = 0;
 }
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   const card = e.target.closest('.qed'); if (!card) return;
   const i = +card.dataset.i, L = SET.questions, q = L[i];
   const tb = e.target.closest('[data-type]'), tm = e.target.closest('[data-time]'), cr = e.target.closest('[data-correct]'), b = e.target.closest('[data-act]');
   const sg = e.target.closest('[data-stage]'), pa = e.target.closest('[data-padd]'), pd = e.target.closest('[data-pdel]'), im = e.target.closest('[data-img]');
   if (im) {
     if (im.dataset.img === 'pick') return pickImage(i);
-    if (im.dataset.img === 'link') { const u = prompt('วางลิงก์ภาพ (ขึ้นต้นด้วย https://)'); if (!u) return; if (!/^https:\/\//.test(u.trim())) return toast('ลิงก์ต้องขึ้นต้นด้วย https://'); q.img = u.trim(); save(); renderList(); return; }
-    if (im.dataset.img === 'del') { if (!confirm('ลบภาพของข้อนี้?')) return; q.img = ''; save(); renderList(); return; }
+    if (im.dataset.img === 'link') { const u = await askText('วางลิงก์ภาพ', '', { placeholder: 'https://…', icon: '🔗', text: 'ลิงก์ต้องขึ้นต้นด้วย https://', max: 800 }); if (!u) return; if (!/^https:\/\//.test(u.trim())) return toast('ลิงก์ต้องขึ้นต้นด้วย https://'); q.img = u.trim(); save(); renderList(); return; }
+    if (im.dataset.img === 'del') { if (!await askOk('ลบภาพของข้อนี้?')) return; q.img = ''; save(); renderList(); return; }
   }
   if (tb) setType(q, tb.dataset.type);
   else if (sg) q.st = Number(sg.dataset.stage);
@@ -429,7 +470,7 @@ document.addEventListener('click', (e) => {
     if (b.dataset.act === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
     if (b.dataset.act === 'down' && i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]];
     if (b.dataset.act === 'dup') L.splice(i + 1, 0, clone(L[i]));
-    if (b.dataset.act === 'del') { if (L.length === 1) return toast('ต้องมีอย่างน้อย 1 ข้อ'); if (!confirm(`ลบข้อ ${i + 1}?`)) return; L.splice(i, 1); }
+    if (b.dataset.act === 'del') { if (L.length === 1) return toast('ต้องมีอย่างน้อย 1 ข้อ'); if (!await askOk(`ลบข้อ ${i + 1}?`)) return; L.splice(i, 1); }
   } else return;
   save(); renderList();
 });
@@ -510,7 +551,7 @@ async function createRoom() {
   try {
     if (!DEMO) { await call('check', { key: KEY }); SSset('key', KEY); }
     const r = await call('create', { key: KEY, title: SET.title, theme: themeFor(SET.theme, SET.title), stages: SET.stages || [], mode: ['self', 'station'].includes(SET.mode) ? SET.mode : 'live', rotate: SET.rotate !== false, questions: qs });
-    PIN = r.pin; SSset('pin', PIN); lastKey = ''; startPoll();
+    PIN = r.pin; SSset('pin', PIN); lastKey = ''; rememberRoom(PIN, SET.title, ['self', 'station'].includes(SET.mode) ? SET.mode : 'live'); startPoll();
   } catch (e) { toast(e.message); b.disabled = false; b.querySelector('span').textContent = 'สร้างห้องเกม'; }
 }
 
@@ -519,7 +560,7 @@ function startPoll() { stopPoll(); poll(); }
 function stopPoll() { clearTimeout(pollT); pollT = null; }
 async function poll() {
   try { render(await call('hpoll', { key: KEY, pin: PIN })); }
-  catch (e) { if (/ไม่พบห้อง|รหัสครู/.test(e.message)) { toast(e.message); SSset('pin', ''); PIN = ''; return showSetup(); } }
+  catch (e) { if (/ไม่พบห้อง|รหัสครู/.test(e.message)) { toast(e.message); forgetRoom(PIN); SSset('pin', ''); PIN = ''; return showLibrary(); } }
   if (G && G.phase === 'end') return;
   pollT = setTimeout(poll, G && G.phase === 'self' ? (DEMO ? 700 : 2500) : POLL);
 }
@@ -532,7 +573,7 @@ async function act(action) {
 const joinUrl = () => new URL('index.html', location.href).href.replace(/\/index\.html$/, '/') ;
 
 function render(g) {
-  G = g;
+  G = g; updExit();
   const key = g.phase + ':' + g.idx;
   const chip = $('#phaseChip'); chip.hidden = false; chip.textContent = `ห้อง ${g.pin}`;
   backdrop(g.theme || 'class');
@@ -574,7 +615,7 @@ function vSelf(g) {
   drawQR(link);
   $('#bClose').onclick = async () => {
     const left = (G.self || []).filter((x) => !x.done).length;
-    if (!confirm(left ? `ยังมีนักเรียนทำไม่เสร็จ ${left} คน ปิดห้องเลยไหม? (คะแนนที่ทำไปแล้วจะถูกบันทึก)` : 'ปิดห้องและประกาศผล?')) return;
+    if (!await askOk(left ? `ยังมีนักเรียนทำไม่เสร็จ ${left} คน ปิดห้องเลยไหม? (คะแนนที่ทำไปแล้วจะถูกบันทึก)` : 'ปิดห้องและประกาศผล?')) return;
     await act('end');
   };
   updateSelf(g);
@@ -618,7 +659,7 @@ function vStationDash(g) {
   $('#bPrintQR').onclick = () => printStationQR(g);
   $('#bClose').onclick = async () => {
     const going = (G.self || []).filter((x) => x.cur != null && x.stp[x.cur] && !x.stp[x.cur].done).length;
-    if (!confirm(going ? `ยังมีนักเรียนกำลังทำฐานอยู่ ${going} คน ปิดห้องเลยไหม? (คะแนนที่ทำไปแล้วจะถูกบันทึก)` : 'ปิดห้องและประกาศผล?')) return;
+    if (!await askOk(going ? `ยังมีนักเรียนกำลังทำฐานอยู่ ${going} คน ปิดห้องเลยไหม? (คะแนนที่ทำไปแล้วจะถูกบันทึก)` : 'ปิดห้องและประกาศผล?')) return;
     await act('end');
   };
   updateStation(g);
@@ -702,7 +743,7 @@ function updatePeople(g) {
     const ang = Math.random() * 6.283; el.style.setProperty('--fx', Math.round(Math.cos(ang) * 500) + 'px'); el.style.setProperty('--fy', Math.round(Math.sin(ang) * 400) + 'px');
     el.innerHTML = `<span class="av">${avatar(p.av)}</span>${esc(p.name)}`;
     el.title = (p.full ? p.full + ' · ' : '') + 'คลิกเพื่อนำออก';
-    el.onclick = async () => { if (confirm(`นำ "${p.name}" ออกจากห้อง?`)) { await call('kick', { key: KEY, pin: PIN, pid: p.pid }); } };
+    el.onclick = async () => { if (await askOk(`นำ "${p.name}" ออกจากห้อง?`)) { await call('kick', { key: KEY, pin: PIN, pid: p.pid }); } };
     box.appendChild(el);
     if (!shown.has(p.pid)) { shown.add(p.pid); sound.pop(); }
   });
@@ -716,7 +757,7 @@ function showReacts(g) {
 let toldPin = '', starting = false;
 async function startGame() {
   if (storyOpen || starting || !G || G.phase !== 'lobby') return;
-  if (!G.players.length && !confirm('ยังไม่มีนักเรียนในห้อง เริ่มเลยไหม?')) return;
+  if (!G.players.length && !await askOk('ยังไม่มีนักเรียนในห้อง เริ่มเลยไหม?')) return;
   starting = true;
   try {
     const lines = String(SET.story || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -1028,11 +1069,13 @@ function vEnd(g) {
     ${b.length > 3 ? `<div class="rest">${b.slice(3).map((x) => `<span class="chip">${x.rank}. ${avatar(x.av)} ${esc(x.name)} · ${x.score.toLocaleString()}</span>`).join('')}</div>` : ''}
     <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap">
       <a class="btn vio big" href="results.html?pin=${g.pin}" target="_blank">📊 ดูสรุปผลรายคน</a>
-      <button class="btn big" id="bNew">สร้างเกมใหม่</button></div></div>`;
+      <button class="btn big" id="bNew">สร้างเกมใหม่</button><button class="btn big" id="bToLib">📚 คลังกิจกรรม</button></div></div>`;
   [0, 0.6].forEach((d, k) => setTimeout(() => sound.tone(k ? 523 : 392, 0.25, 'triangle', 0.15), d * 1000));
   for (let k = 0; k < 10; k++) setTimeout(() => sound.tick(k % 2), 1300 + k * 90);
   setTimeout(() => { sound.fanfare(); confetti(240); fireworks(7000); }, 2300);
   setTimeout(() => peek(M(), isFox() ? ((hasStages(g) ? gemsOf(g).got >= gemsOf(g).need : passedOf(g) >= needPass(g.total)) ? 'พวกเจ้าคือนักสำรวจตัวจริง! ข้ายอมรับ 🦊' : 'ครั้งหน้าข้าจะรอพวกเจ้าอีกนะ ❄️') : 'ปรบมือให้แชมป์หน่อย! 👏', 'happy', 4500), 3400);
+  forgetRoom(g.pin);
+  $('#bToLib').onclick = () => leaveRoom();
   $('#bNew').onclick = () => { PIN = ''; G = null; lastKey = ''; shown = new Set(); selfSeen = new Set(); prevBoard = []; showSetup(); };
 }
 

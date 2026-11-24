@@ -139,3 +139,23 @@
 }
 .tb .nk{display:block;font-size:12px;color:#8A8DA6;font-weight:400;font-family:"Mitr"}
 .qt .stn{font-style:normal;font-family:"Mitr";font-weight:500;font-size:11.5px;background:#F3F0FF;color:#4B3BAE;border-radius:99px;padding:1px 8px;margin-right:6px;vertical-align:2px}
+
+/* ===== popup ===== */
+.dlg-ov{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:rgba(20,18,45,.45);backdrop-filter:blur(4px);animation:fadein .18s both}
+.dlg-ov.bye{transition:opacity .18s;opacity:0}
+.dlg{width:min(440px,100%);background:#fff;color:var(--ink);border-radius:26px;padding:26px 24px 20px;text-align:center;box-shadow:0 30px 60px -20px rgba(20,16,60,.55);animation:pop .35s var(--spring) both;font-family:'Mitr',sans-serif}
+.dlg-ic{width:62px;height:62px;margin:-58px auto 8px;border-radius:20px;display:grid;place-items:center;font-size:30px;background:linear-gradient(135deg,#7B61FF,#FF6B9A);box-shadow:0 10px 20px -8px rgba(123,97,255,.7)}
+.dlg.danger .dlg-ic{background:linear-gradient(135deg,#FF9A6B,#F25F5C);box-shadow:0 10px 20px -8px rgba(242,95,92,.7)}
+.dlg h3{margin:4px 0 6px;font-size:21px;font-weight:600;line-height:1.35}
+.dlg p{margin:0 0 12px;font-size:15px;color:#5A5E7A;line-height:1.55;font-family:'Sarabun',sans-serif}
+.dlg-in{width:100%;border:2px solid #E6E7F0;background:#F7F7FB;border-radius:14px;padding:12px 14px;font-size:17px;outline:none;margin:4px 0 14px;font-family:inherit;color:var(--ink);transition:all .2s}
+.dlg-in:focus{border-color:#7B61FF;background:#fff;box-shadow:0 0 0 4px rgba(123,97,255,.15)}
+.dlg-in.err{border-color:#F25F5C;animation:shake .4s}
+.dlg-btns{display:flex;gap:10px;justify-content:center}
+.dlg-btns.col{flex-direction:column}
+.dlg-b{flex:1;border:0;border-radius:14px;padding:12px 16px;font-size:16px;font-family:inherit;cursor:pointer;transition:transform .15s var(--spring),box-shadow .15s}
+.dlg-b:active{transform:scale(.97)}
+.dlg-b.ghost{background:#F1F1F7;color:#4A4E69}
+.dlg-b.primary{background:linear-gradient(135deg,#21C4A6,#2E9BEF);color:#fff;font-weight:600;box-shadow:0 8px 16px -8px rgba(33,160,200,.8)}
+.dlg-b.danger{background:linear-gradient(135deg,#FF8A6B,#F25F5C);color:#fff;font-weight:600;box-shadow:0 8px 16px -8px rgba(242,95,92,.8)}
+.dlg-b:focus-visible{outline:3px solid #7B61FF;outline-offset:2px}

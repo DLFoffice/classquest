@@ -134,3 +134,32 @@ export const foxSVG = (fur = '#fff') => FOX_T.split('{F}').join(fur);
 export const FOX = foxSVG('#fff');
 export const FOX_THEMES = ['snow', 'fire', 'earth', 'wind'];
 export const mascotFor = (theme) => (FOX_THEMES.includes(theme) ? FOX : MASCOT);
+
+// ===================================================== กล่องข้อความแบบ popup (แทน prompt / confirm ของเบราว์เซอร์)
+// dialog({ title, text, icon, input, value, placeholder, buttons:[{label, value, kind:'primary'|'danger'|'ghost'}] }) → Promise<value | null>
+export function dialog(o = {}) {
+  return new Promise((done) => {
+    const btns = o.buttons || [{ label: o.cancel || 'ยกเลิก', value: null, kind: 'ghost' }, { label: o.ok || 'ตกลง', value: true, kind: o.danger ? 'danger' : 'primary' }];
+    const ov = document.createElement('div'); ov.className = 'dlg-ov';
+    ov.innerHTML = `<div class="dlg ${o.danger ? 'danger' : ''}" role="dialog" aria-modal="true">
+      <div class="dlg-ic">${o.icon || (o.danger ? '⚠️' : o.input ? '✏️' : '💬')}</div>
+      ${o.title ? `<h3>${esc(o.title)}</h3>` : ''}${o.text ? `<p>${esc(o.text).replace(/\n/g, '<br>')}</p>` : ''}
+      ${o.input ? `<input class="dlg-in" value="${esc(o.value || '')}" placeholder="${esc(o.placeholder || '')}" maxlength="${o.max || 120}">` : ''}
+      <div class="dlg-btns ${btns.length > 2 ? 'col' : ''}">${btns.map((b, i) => `<button type="button" class="dlg-b ${b.kind || 'ghost'}" data-i="${i}">${esc(b.label)}</button>`).join('')}</div></div>`;
+    document.body.appendChild(ov);
+    const inp = ov.querySelector('.dlg-in'), prev = document.activeElement;
+    const close = (v) => { ov.classList.add('bye'); document.removeEventListener('keydown', key, true); setTimeout(() => ov.remove(), 180); prev && prev.focus && prev.focus(); done(v); };
+    const pick = (b) => { if (b.value === null || b.value === undefined) return close(null); if (o.input) { const v = inp.value.trim(); if (!v && b.kind !== 'ghost') { inp.classList.add('err'); inp.focus(); return; } return close(v); } close(b.value); };
+    ov.querySelectorAll('.dlg-b').forEach((el) => (el.onclick = () => pick(btns[+el.dataset.i])));
+    ov.addEventListener('mousedown', (e) => { if (e.target === ov) close(null); });
+    const key = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const main = btns.findIndex((b) => b.kind === 'primary' || b.kind === 'danger'); pick(btns[main >= 0 ? main : btns.length - 1]); }
+      else e.stopPropagation();
+    };
+    document.addEventListener('keydown', key, true);
+    setTimeout(() => (inp ? (inp.focus(), inp.select()) : ov.querySelector('.dlg-b.primary, .dlg-b.danger, .dlg-b')?.focus()), 40);
+  });
+}
+export const askOk = (text, o = {}) => dialog({ title: o.title || text, text: o.title ? text : o.text, danger: o.danger ?? /ลบ|ปิดห้อง|ออกจาก|แทนที่|เลิกใช้/.test(text), ok: o.ok || (/^ลบ/.test(text) ? 'ลบ' : /^นำ .* ออก/.test(text) ? 'นำออก' : /^แทนที่/.test(text) ? 'แทนที่' : undefined), cancel: o.cancel, icon: o.icon }).then((v) => v === true);
+export const askText = (title, value = '', o = {}) => dialog({ title, input: true, value, placeholder: o.placeholder || '', text: o.text, ok: o.ok || 'ตกลง', icon: o.icon });
